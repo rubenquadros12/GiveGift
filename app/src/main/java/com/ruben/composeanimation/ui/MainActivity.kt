@@ -2,20 +2,21 @@ package com.ruben.composeanimation.ui
 
 import android.graphics.drawable.Drawable
 import android.os.Bundle
+import android.util.Log
 import android.widget.ImageView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -28,14 +29,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.*
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
@@ -70,9 +72,10 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun MainContent(mainViewModel: MainViewModel, mainViewModel2: MainViewModel2) {
-
     fun onSlabClick(slab: Slab) {
-        mainViewModel.addNewGift(slab = slab, message = slab.toString())
+        var count = 0
+        count = count.inc()
+        mainViewModel.addNewGift(count = count, slab = slab, message = slab.toString())
     }
 
     fun onGiftCleared(giftMessage: GiftMessage) {
@@ -86,25 +89,42 @@ fun MainContent(mainViewModel: MainViewModel, mainViewModel2: MainViewModel2) {
     }
     val uiState by uiStateFlowLifecycleAware.collectAsState(initial = mainViewModel2.createInitialState())
 
+    val giftList = uiState.giftList
+
     Box(modifier = Modifier.fillMaxSize()) {
 
         Button(
-            modifier = Modifier.padding(8.dp).align(Alignment.TopCenter),
+            modifier = Modifier
+                .padding(8.dp)
+                .align(Alignment.TopCenter),
             onClick = { mainViewModel.clearDB() }
         ) {
             Text(text = "Clear DB")
         }
 
-        LazyColumn(
-            modifier = Modifier
-                .padding(16.dp)
-                .align(Alignment.CenterStart)
-        ) {
-            items(items = uiState.giftList, key = {item -> item.id}) { item ->
+        if (giftList.any { it.slab == Slab.SLAB_5.toString() }) {
+            Slab5Anim {
                 GiftMessageContent(
-                    giftMessage = item,
-                    onGiftClear = { gift -> onGiftCleared(gift) }
-                )
+                    giftMessage = giftList[0],
+                    onGiftClear = { gift -> onGiftCleared(gift) })
+            }
+//            Slab5Content {
+//                GiftMessageContent(
+//                    giftMessage = giftList[0],
+//                    onGiftClear = { gift -> onGiftCleared(gift) })
+//            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .padding(16.dp)
+                    .align(Alignment.CenterStart)
+            ) {
+                items(items = uiState.giftList, key = { item -> item.id }) { item ->
+                    GiftMessageContent(
+                        giftMessage = item,
+                        onGiftClear = { gift -> onGiftCleared(gift) }
+                    )
+                }
             }
         }
 
@@ -121,6 +141,58 @@ fun MainContent(mainViewModel: MainViewModel, mainViewModel2: MainViewModel2) {
 
 }
 
+@Composable
+fun Slab5Anim(
+    content: @Composable () -> Unit
+) {
+    val screenHeight = LocalConfiguration.current.screenHeightDp
+    val screenWidth = LocalConfiguration.current.screenWidthDp
+    var isStart by remember { mutableStateOf(true) }
+
+    LaunchedEffect(key1 = true) {
+        delay(1000)
+        isStart = false
+    }
+
+    val offsetAnimation: Dp by animateDpAsState(
+        targetValue = if (isStart) (screenHeight/2).dp else (screenHeight/2 - 100).dp,
+        animationSpec = tween(durationMillis = 2000, easing = LinearEasing),
+    )
+
+    Box(modifier = Modifier.absoluteOffset(x = (screenWidth/2).dp, y = offsetAnimation)) {
+        content()
+    }
+}
+
+@Composable
+fun Slab5Content(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit
+) {
+
+    val screenWidth = LocalConfiguration.current.screenWidthDp
+    val screenHeight = LocalConfiguration.current.screenHeightDp
+
+    Layout(
+        modifier = modifier,
+        content = content,
+        measurePolicy = { measurables, constraints ->
+            val slab5Gift = measurables.first { it.layoutId == "gift_content" }.measure(constraints)
+            placeSlab5Gift(slab5Gift, constraints.maxWidth, constraints.maxHeight)
+        }
+    )
+}
+
+private fun MeasureScope.placeSlab5Gift(
+    gift: Placeable,
+    width: Int,
+    height: Int
+): MeasureResult {
+    return layout(width, height) {
+        gift.place(x = (width/2), y = (height)/2)
+    }
+}
+
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun GiftMessageContent(giftMessage: GiftMessage, onGiftClear: (GiftMessage) -> Unit) {
@@ -134,6 +206,7 @@ fun GiftMessageContent(giftMessage: GiftMessage, onGiftClear: (GiftMessage) -> U
     }
 
     AnimatedVisibility(
+        modifier = Modifier.layoutId("gift_content"),
         visible = isVisible,
         enter = slideInHorizontally(initialOffsetX = { with(density) { 40.dp.roundToPx() } }),
         exit = slideOutHorizontally()

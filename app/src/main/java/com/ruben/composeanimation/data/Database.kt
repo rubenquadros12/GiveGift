@@ -1,8 +1,15 @@
 package com.ruben.composeanimation.data
 
+import android.content.Context
 import androidx.room.*
 import androidx.room.Database
+import dagger.Module
+import dagger.Provides
+import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
+import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.flow.Flow
+import javax.inject.Singleton
 
 /**
  * Created by Ruben Quadros on 27/11/21
@@ -12,6 +19,8 @@ data class GiftMessage(
     @ColumnInfo(name = "id")
     @PrimaryKey
     val id: Long,
+    @ColumnInfo(name = "user_id")
+    val userId: String,
     @ColumnInfo(name = "gift_slab")
     val slab: String,
     @ColumnInfo(name = "message")
@@ -37,5 +46,15 @@ interface GiftDao {
 abstract class AppDatabase: RoomDatabase() {
 
     abstract fun giftDao(): GiftDao
+
+}
+
+@[Module InstallIn(SingletonComponent::class)]
+internal object DbModule {
+
+    @[Provides Singleton]
+    fun provideAppDb(@ApplicationContext context: Context): AppDatabase {
+        return Room.databaseBuilder(context, AppDatabase::class.java, "gift.db").build()
+    }
 
 }

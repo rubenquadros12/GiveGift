@@ -11,7 +11,7 @@ import javax.inject.Inject
  **/
 class GetGiftUseCase @Inject constructor(private val repo: MainRepo) {
 
-    suspend fun getGifts(): Flow<GiftMessage> {
+    fun getGifts(): Flow<GiftMessage> {
         return repo.getNewGift()
     }
 

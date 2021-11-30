@@ -1,12 +1,9 @@
 package com.ruben.composeanimation.ui
 
-import android.util.Log
 import androidx.lifecycle.ViewModel
 import com.ruben.composeanimation.data.GiftMessage
 import com.ruben.composeanimation.data.MainRepo
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.buffer
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.onEach
@@ -35,13 +32,14 @@ class MainViewModel @Inject constructor(private val repo: MainRepo): ContainerHo
 
     fun createInitialState() = MainState()
 
-    fun addNewGift(slab: Slab, message: String) = intent {
+    fun addNewGift(count: Int, slab: Slab, message: String) = intent {
         repo.insertNewGift(
             GiftMessage(
                 id = System.currentTimeMillis(),
                 slab = slab.toString(),
                 message = message,
-                totalDuration = slab.duration
+                totalDuration = slab.duration,
+                userId = if (count%5 == 0) "123" else "456"
             )
         )
     }
@@ -57,7 +55,7 @@ class MainViewModel @Inject constructor(private val repo: MainRepo): ContainerHo
     private fun getNewGiftsInternal() = intent {
         repo.getNewGift().onEach {
             do {
-                Log.d("Ruben", "${it.id}")
+                //wait
             } while (giftMap.size == 2)
         }.buffer().collect {
            giftMap[it.id] = it
