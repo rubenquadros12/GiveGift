@@ -8,6 +8,7 @@ import com.ruben.composeanimation.data.MessageQueue
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import org.orbitmvi.orbit.Container
 import org.orbitmvi.orbit.ContainerHost
@@ -30,6 +31,7 @@ class MainViewModel2 @Inject constructor(
         container(initialState = createInitialState()) {
             getNewGiftsInternal()
             getQueuedGifts()
+            initializeQueue()
         }
     }
 
@@ -37,7 +39,15 @@ class MainViewModel2 @Inject constructor(
 
     fun createInitialState() = MainState()
 
+    private fun initializeQueue() = intent {
+        giftQueue.initialize()
+    }
+
     private fun getQueuedGifts() = intent {
+//        messageQueue.getGifts().collect {
+//            Log.d("Ruben", "ui data $it")
+//            reduce { state.copy(giftList = it.toList()) }
+//        }
         giftQueue.getGifts().collect {
             Log.d("Ruben", "ui data $it")
             reduce { state.copy(giftList = it.toList()) }
@@ -45,19 +55,9 @@ class MainViewModel2 @Inject constructor(
     }
 
     private fun getNewGiftsInternal() = intent {
-//        fun enqueueIncomingGift(giftMessage: GiftMessage) = intent {
-//            messageQueue.enqueue(giftMessage).collect {
-//                reduce { state.copy(giftList = it) }
-//            }
-//        }
-//
 //        useCase.getGifts().collect {
 //            Log.d("Ruben", "got from usecase ${it.slab}")
-//            giftChannel.send(it)
-//            enqueueIncomingGift(it)
-//        }
-//        messageQueue.enqueue(useCase.getGifts()).collect {
-//            reduce { state.copy(giftList = it) }
+//            messageQueue.enqueue(it)
 //        }
 
         useCase.getGifts().collect {
@@ -67,6 +67,7 @@ class MainViewModel2 @Inject constructor(
     }
 
     fun clearGift(giftMessage: GiftMessage) = intent {
+        delay(100)
         //messageQueue.clearGift(giftMessage)
         giftQueue.clearGift(giftMessage)
     }

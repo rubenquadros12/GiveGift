@@ -7,13 +7,10 @@ import android.widget.ImageView
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.viewModels
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.ExperimentalAnimationApi
+import androidx.compose.animation.*
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
@@ -47,6 +44,7 @@ import com.github.penfeizhou.animation.loader.ResourceStreamLoader
 import com.github.penfeizhou.animation.webp.WebPDrawable
 import com.ruben.composeanimation.R
 import com.ruben.composeanimation.data.GiftMessage
+import com.ruben.composeanimation.ui.component.StickyComments
 import com.ruben.composeanimation.ui.theme.ComposeAnimationTheme
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.delay
@@ -64,6 +62,7 @@ class MainActivity : ComponentActivity() {
                 Surface(color = MaterialTheme.colors.background) {
                    //AnimationContent()
                     MainContent(mainViewModel, mainViewModel2)
+                   //StickyCommentContent(mainViewModel, mainViewModel2)
                 }
             }
         }
@@ -71,9 +70,54 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun MainContent(mainViewModel: MainViewModel, mainViewModel2: MainViewModel2) {
+fun StickyCommentContent(mainViewModel: MainViewModel, mainViewModel2: MainViewModel2) {
     fun onSlabClick(slab: Slab) {
         var count = 0
+        count = count.inc()
+        mainViewModel.addNewGift(count = count, slab = slab, message = slab.toString())
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val uiStateFlow = mainViewModel2.uiState
+    val uiStateFlowLifecycleAware = remember(uiStateFlow, lifecycleOwner) {
+        uiStateFlow.flowWithLifecycle(lifecycleOwner.lifecycle, Lifecycle.State.STARTED)
+    }
+    val uiState by uiStateFlowLifecycleAware.collectAsState(initial = mainViewModel2.createInitialState())
+
+    Box(modifier = Modifier.fillMaxSize()) {
+
+        Button(
+            modifier = Modifier
+                .padding(8.dp)
+                .align(Alignment.TopCenter),
+            onClick = { mainViewModel.clearDB() }
+        ) {
+            Text(text = "Clear DB")
+        }
+
+        Box( modifier = Modifier
+            .padding(16.dp)
+            .align(Alignment.CenterStart)
+        ) {
+            StickyComments(mainViewModel2)
+        }
+
+            LazyRow(
+                modifier = Modifier
+                    .padding(8.dp)
+                    .align(Alignment.BottomCenter),
+            ) {
+                items(items = uiState.slabList, key = { item -> item.duration }) { item ->
+                    SlabContent(item, onSlabClick = { slab -> onSlabClick(slab) })
+                }
+            }
+        }
+    }
+
+@Composable
+fun MainContent(mainViewModel: MainViewModel, mainViewModel2: MainViewModel2) {
+    var count by remember { mutableStateOf(0) }
+    fun onSlabClick(slab: Slab) {
         count = count.inc()
         mainViewModel.addNewGift(count = count, slab = slab, message = slab.toString())
     }
@@ -108,11 +152,11 @@ fun MainContent(mainViewModel: MainViewModel, mainViewModel2: MainViewModel2) {
                     giftMessage = giftList[0],
                     onGiftClear = { gift -> onGiftCleared(gift) })
             }
-//            Slab5Content {
-//                GiftMessageContent(
-//                    giftMessage = giftList[0],
-//                    onGiftClear = { gift -> onGiftCleared(gift) })
-//            }
+//            Slab5Content(
+//                giftMessage = giftList[0],
+//                onGiftClear = { onGiftCleared() },
+//                content = { Gift(giftMessage = giftList[0]) }
+//            )
         } else {
             LazyColumn(
                 modifier = Modifier
@@ -164,23 +208,40 @@ fun Slab5Anim(
     }
 }
 
+@OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun Slab5Content(
+    giftMessage: GiftMessage,
     modifier: Modifier = Modifier,
-    content: @Composable () -> Unit
+    content: @Composable () -> Unit,
+    onGiftClear: (GiftMessage) -> Unit
 ) {
 
     val screenWidth = LocalConfiguration.current.screenWidthDp
     val screenHeight = LocalConfiguration.current.screenHeightDp
 
-    Layout(
-        modifier = modifier,
-        content = content,
-        measurePolicy = { measurables, constraints ->
-            val slab5Gift = measurables.first { it.layoutId == "gift_content" }.measure(constraints)
-            placeSlab5Gift(slab5Gift, constraints.maxWidth, constraints.maxHeight)
-        }
-    )
+    var isVisible by remember {
+        mutableStateOf(true)
+    }
+
+    LaunchedEffect(key1 = true) {
+        delay(giftMessage.totalDuration)
+        onGiftClear.invoke(giftMessage)
+        isVisible = false
+    }
+
+    AnimatedVisibility(
+        visible =isVisible
+    ) {
+        Layout(
+            modifier = modifier,
+            content = content,
+            measurePolicy = { measurables, constraints ->
+                val slab5Gift = measurables.first { it.layoutId == "gift_content" }.measure(constraints)
+                placeSlab5Gift(slab5Gift, constraints.maxWidth, constraints.maxHeight)
+            }
+        )
+    }
 }
 
 private fun MeasureScope.placeSlab5Gift(
@@ -206,16 +267,25 @@ fun GiftMessageContent(giftMessage: GiftMessage, onGiftClear: (GiftMessage) -> U
     }
 
     AnimatedVisibility(
-        modifier = Modifier.layoutId("gift_content"),
         visible = isVisible,
-        enter = slideInHorizontally(initialOffsetX = { with(density) { 40.dp.roundToPx() } }),
-        exit = slideOutHorizontally()
+        modifier = Modifier.layoutId("gift_content_1"),
+        enter = expandHorizontally(),
+        exit = slideOutHorizontally(targetOffsetX = { with(density) { 40.dp.roundToPx() } })
     ) {
         Box(modifier = Modifier.background(shape = RoundedCornerShape(10.dp), color = Color.Red)) {
             Text(modifier = Modifier.padding(8.dp), text = giftMessage.message, fontWeight = FontWeight.W700, color = Color.White)
         }
     }
+}
 
+@Composable
+fun Gift(giftMessage: GiftMessage) {
+    Box(modifier = Modifier
+        .size(100.dp)
+        .layoutId("gift_content")
+        .background(shape = RoundedCornerShape(10.dp), color = Color.Red)) {
+        Text(modifier = Modifier.padding(8.dp), text = giftMessage.message, fontWeight = FontWeight.W700, color = Color.White)
+    }
 }
 
 @Composable

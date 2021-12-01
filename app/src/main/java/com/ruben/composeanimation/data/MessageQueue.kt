@@ -4,10 +4,13 @@ import android.util.Log
 import com.ruben.composeanimation.utility.GiftConstants.MAX_VISIBLE_GIFTS
 import com.ruben.composeanimation.utility.isHighTierSlab
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.suspendCancellableCoroutine
 import java.util.*
 import javax.inject.Inject
+import kotlin.coroutines.resume
 
 /**
  * Created by Ruben Quadros on 28/11/21
@@ -17,48 +20,25 @@ class MessageQueue @Inject constructor() {
     private var giftIndex = -1
     private val giftList: MutableList<GiftMessage> = mutableListOf()
     private val interimQueue: Deque<GiftMessage> = LinkedList()
+    private val giftChannel: Channel<Deque<GiftMessage>> = Channel(capacity = Channel.UNLIMITED)
+    private var callback: MyCallback? = null
 
-    suspend fun enqueue(giftMessage: GiftMessage): Flow<List<GiftMessage>> = flow {
+    suspend fun enqueue(giftMessage: GiftMessage) {
         Log.d("Ruben", "enqueue ${giftMessage.slab}")
-        interimQueue.add(giftMessage)
-        Log.d("Ruben", "in queue? ${interimQueue.size}")
-        emit(addIncomingGift().toList())
-
-        /*giftMessage.onEach { gift ->
-            Log.d("Ruben", "incoming gift from usecase ${gift.slab}, ${gift.userId}")
-            addIncomingGift(gift)
-//            if (gift.userId == "123") {
-//                interimQueue.addFirst(gift)
-//            } else {
-//                interimQueue.add(gift)
-//            }
-//            interimQueue.first { giftList.contains(it).not() }?.let {
-//                addIncomingGift(it)
-//            }
-//            do {
-//                //keep waiting
-//            } while (giftList.size == 2)
-//            if (giftIndex != -1) {
-//                giftList.add(giftIndex, gift)
-//            } else {
-//                giftList.add(gift)
-//            }
-        }.buffer(capacity = Channel.UNLIMITED).collect {
-            Log.d("Ruben", "$giftList")
-            emit(giftList.toList())
-        }*/
-//        giftMessage.onEach { gift ->
-//            Log.d("Ruben", "incoming gift from usecase ${gift.slab}, ${gift.userId}")
-//            giftList.add(gift)
-//        }.buffer(capacity = Channel.UNLIMITED).collect {
-//            emit(giftList.toList())
-//        }
+        if (giftMessage.userId == "123") {
+            interimQueue.addFirst(giftMessage)
+        } else {
+            interimQueue.add(giftMessage)
+        }
+        giftChannel.send(interimQueue)
     }
 
     fun clearGift(giftMessage: GiftMessage) {
         giftIndex = giftList.indexOfFirst { it.id == giftMessage.id }
         if (interimQueue.isNotEmpty()) interimQueue.removeFirst()
         giftList.removeAt(giftIndex)
+        callback?.onDataChange(giftList.size)
+        Log.d("Ruben", "removed ${giftList.size}")
     }
 
     /**
@@ -66,72 +46,116 @@ class MessageQueue @Inject constructor() {
      * S1 and S2 gifts can be shown in parallel
      * S3, S4 and S5 will be shown one at a time
      */
-    private fun addIncomingGift(): List<GiftMessage> {
-        if (giftList.isEmpty()) {
-            //no gifts you can add
-            //Log.d("Ruben", "nothing present")
-            interimQueue.peek()?.let {
-                giftList.add(it)
-            }
-            return giftList
-        } else {
-            if (interimQueue.peek()?.slab?.isHighTierSlab() == true) {
-                //Log.d("Ruben", "incoming gift ${giftMessage.slab} ${giftList.size}")
-                do {
-                    //wait for all gifts to be displayed
-                } while (giftList.size >= 1)
-                interimQueue.peek()?.let {
+    suspend fun getGifts(): Flow<List<GiftMessage>> = flow {
+        giftChannel.consumeEach { queue ->
+            if (giftList.isEmpty()) {
+                //no gifts you can add
+                queue.peek()?.let {
                     giftList.add(it)
                 }
-                return giftList
+                emit(giftList.toList())
             } else {
-                //Log.d("Ruben", "incoming gift else ${giftMessage.slab} ${giftList.size}")
-                when {
-                    giftList.size == MAX_VISIBLE_GIFTS -> {
-                        //Log.d("Ruben", "size2")
-                        do {
-                            //wait for gift to finish displaying
-                        } while (giftList.size == MAX_VISIBLE_GIFTS)
-                        interimQueue.peek()?.let {
-                            giftList.add(giftIndex, it)
-                        }
-                        return giftList
-                    }
-                    giftList[0].slab.isHighTierSlab() -> {
-                        //Log.d("Ruben", "size1 and s3,s4,s5 ${giftList[0].slab}")
-                        do {
-                            //wait for gift to finish displaying
-                        } while (giftList.size >= MAX_VISIBLE_GIFTS - 1)
-                        interimQueue.peek()?.let {
-                            giftList.add(it)
-                        }
-                        return giftList
-                    }
-                    else -> {
-                        //s1 or s2 gift present
-                        //can add one more s1 or s2 gift
-                        //Log.d("Ruben", "s1 or s2 present")
-                        return if (giftIndex != -1) {
-                            interimQueue.peek()?.let {
-                                giftList.add(giftIndex, it)
+                if (queue.peek()?.slab?.isHighTierSlab() == true) {
+                    //wait for all gifts to be displayed
+                    if (giftList.isNotEmpty()) {
+                        suspendCancellableCoroutine<Unit> { continuation ->
+                            Log.d("Ruben", "in suspendCancellableCoroutine 61")
+                            callback = object : MyCallback {
+                                override fun onDataChange(size: Int) {
+                                    if (size == 0) {
+                                        if (continuation.isActive) {
+                                            Log.d("Ruben", "resume suspendCancellableCoroutine 66")
+                                            continuation.resume(Unit)
+                                        }
+                                    }
+                                }
                             }
-                            giftList
-                        } else {
-                            interimQueue.peek()?.let {
+                        }
+                    }
+                    queue.peek()?.let {
+                        giftList.add(it)
+                    }
+                    emit(giftList.toList())
+                } else {
+                    when {
+                        giftList.size == MAX_VISIBLE_GIFTS -> {
+                            //wait for a gift to finish displaying
+                            suspendCancellableCoroutine<Unit> { continuation ->
+                                Log.d("Ruben", "in suspendCancellableCoroutine 82")
+                                callback = object : MyCallback {
+                                    override fun onDataChange(size: Int) {
+                                        if (size == 1) {
+                                            if (continuation.isActive) {
+                                                Log.d("Ruben", "resume suspendCancellableCoroutine 87")
+                                                continuation.resume(Unit)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            queue.peek()?.let {
+                                if (giftList.contains(it)) {
+                                    val gift = queue.first { gift -> giftList.contains(gift).not() }
+                                    giftList.add(giftIndex, gift)
+                                } else {
+                                    giftList.add(giftIndex, it)
+                                }
+                            }
+                            emit(giftList.toList())
+                        }
+                        giftList[0].slab.isHighTierSlab() -> {
+                            //wait for the gift to finish displaying
+                            suspendCancellableCoroutine<Unit> { continuation ->
+                                Log.d("Ruben", "in suspendCancellableCoroutine 107")
+                                callback = object : MyCallback {
+                                    override fun onDataChange(size: Int) {
+                                        if (size == 0) {
+                                            if (continuation.isActive) {
+                                                Log.d("Ruben", "resume suspendCancellableCoroutine 112")
+                                                continuation.resume(Unit)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            queue.peek()?.let {
                                 giftList.add(it)
                             }
-                            giftList
+                            emit(giftList.toList())
+                        }
+                        else -> {
+                            //s1 or s2 gift present
+                            //can add one more s1 or s2 gift
+                            if (giftIndex != -1) {
+
+                                queue.peek()?.let {
+                                    if (giftList.contains(it)) {
+                                        val gift = queue.first { gift -> giftList.contains(gift).not() }
+                                        giftList.add(giftIndex, gift)
+                                    } else {
+                                        giftList.add(giftIndex, it)
+                                    }
+                                }
+                                emit(giftList.toList())
+                            } else {
+                                queue.peek()?.let {
+                                    if (giftList.contains(it)) {
+                                        val gift = queue.first { gift -> giftList.contains(gift).not() }
+                                        giftList.add(gift)
+                                    } else {
+                                        giftList.add(it)
+                                    }
+                                }
+                                emit(giftList.toList())
+                            }
                         }
                     }
                 }
             }
         }
     }
+}
 
-    private suspend fun evictGifts(giftMessage: GiftMessage) {
-        delay(giftMessage.totalDuration)
-        giftIndex = giftList.indexOfFirst { it.id == giftMessage.id }
-        giftList.removeAt(giftIndex)
-        if (interimQueue.isNotEmpty()) interimQueue.remove(giftMessage)
-    }
+interface MyCallback {
+    fun onDataChange(size: Int)
 }

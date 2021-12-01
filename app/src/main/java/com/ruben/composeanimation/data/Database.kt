@@ -18,15 +18,15 @@ import javax.inject.Singleton
 data class GiftMessage(
     @ColumnInfo(name = "id")
     @PrimaryKey
-    val id: Long,
+    val id: Long = -1,
     @ColumnInfo(name = "user_id")
-    val userId: String,
+    val userId: String = "",
     @ColumnInfo(name = "gift_slab")
-    val slab: String,
+    val slab: String = "",
     @ColumnInfo(name = "message")
-    val message: String,
+    val message: String = "",
     @ColumnInfo(name = "total_duration")
-    val totalDuration: Long
+    val totalDuration: Long = 0
 )
 
 @Dao

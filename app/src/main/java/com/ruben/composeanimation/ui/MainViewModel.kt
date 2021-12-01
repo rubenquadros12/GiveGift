@@ -1,5 +1,6 @@
 package com.ruben.composeanimation.ui
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import com.ruben.composeanimation.data.GiftMessage
 import com.ruben.composeanimation.data.MainRepo
@@ -33,6 +34,7 @@ class MainViewModel @Inject constructor(private val repo: MainRepo): ContainerHo
     fun createInitialState() = MainState()
 
     fun addNewGift(count: Int, slab: Slab, message: String) = intent {
+        Log.d("Ruben", "userdId $count, ${count%5}")
         repo.insertNewGift(
             GiftMessage(
                 id = System.currentTimeMillis(),
