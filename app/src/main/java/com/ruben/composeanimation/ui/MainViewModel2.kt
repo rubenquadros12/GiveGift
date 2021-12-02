@@ -3,11 +3,11 @@ package com.ruben.composeanimation.ui
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import com.ruben.composeanimation.data.GiftMessage
-import com.ruben.composeanimation.data.GiftQueue
+import com.ruben.composeanimation.queue.GiftQueueImpl
 import com.ruben.composeanimation.data.MessageQueue
+import com.ruben.composeanimation.queue.GiftQueue
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import org.orbitmvi.orbit.Container
@@ -62,14 +62,27 @@ class MainViewModel2 @Inject constructor(
 
         useCase.getGifts().collect {
             Log.d("Ruben", "got from usecase ${it.slab}")
-            giftQueue.queueIncomingGift(it)
+            giftQueue.enqueue(it)
         }
     }
 
     fun clearGift(giftMessage: GiftMessage) = intent {
         delay(100)
         //messageQueue.clearGift(giftMessage)
-        giftQueue.clearGift(giftMessage)
+        giftQueue.dequeue(giftMessage)
+    }
+
+    fun onStart() {
+        giftQueue.resumeQueue()
+    }
+
+    fun onStop() = intent {
+        giftQueue.pauseQueue()
+    }
+
+    override fun onCleared() {
+        super.onCleared()
+        giftQueue.shutDown()
     }
 }
 
