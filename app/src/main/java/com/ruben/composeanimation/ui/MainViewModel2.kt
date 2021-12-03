@@ -50,7 +50,21 @@ class MainViewModel2 @Inject constructor(
 //        }
         giftQueue.getGifts().collect {
             Log.d("Ruben", "ui data $it")
-            reduce { state.copy(giftList = it.toList()) }
+            when {
+                state.slot1 == null && state.slot2 == null -> {
+                    Log.d("Ruben", "select slot both null ${it.slab}, ${it.id}")
+                    reduce { state.copy(slot1 = it) }
+                }
+                state.slot1 == null -> {
+                    Log.d("Ruben", "select slot slot1 null ${it.slab}, ${it.id}")
+                    reduce { state.copy(slot1 = it) }
+                }
+                state.slot2 == null -> {
+                    Log.d("Ruben", "select slot slot2    null ${it.slab}, ${it.id}")
+                    reduce { state.copy(slot2 = it) }
+                }
+            }
+            //reduce { state.copy(giftList = it.toList()) }
         }
     }
 
@@ -66,10 +80,17 @@ class MainViewModel2 @Inject constructor(
         }
     }
 
-    fun clearGift(giftMessage: GiftMessage) = intent {
-        delay(100)
+    fun clearGift(giftMessage: GiftMessage, isFirstSlot: Boolean = false) = intent {
+        Log.d("Ruben", "clear gift ${giftMessage.slab}, ${giftMessage.id}, $isFirstSlot")
+        reduce { if (isFirstSlot) {
+            state.copy(slot1 = null)
+        } else {
+            state.copy(slot2 = null)
+        } }.also {
+            delay(100)
+            giftQueue.dequeue(giftMessage)
+        }
         //messageQueue.clearGift(giftMessage)
-        giftQueue.dequeue(giftMessage)
     }
 
     fun onStart() {

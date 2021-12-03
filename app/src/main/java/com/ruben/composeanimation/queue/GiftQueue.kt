@@ -10,7 +10,7 @@ interface GiftQueue {
     suspend fun initialize()
     suspend fun enqueue(giftMessage: GiftMessage)
     suspend fun dequeue(giftMessage: GiftMessage)
-    suspend fun getGifts(): Flow<List<GiftMessage>>
+    suspend fun getGifts(): Flow<GiftMessage>
     fun pauseQueue()
     fun resumeQueue()
     fun shutDown()

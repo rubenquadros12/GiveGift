@@ -25,7 +25,7 @@ class GiftQueueImpl @Inject constructor(
 ) : GiftQueue {
 
     private val _priorityChannels: MutableMap<String, Channel<GiftMessage>> = mutableMapOf()
-    private val _giftChannel: Channel<List<GiftMessage>> = Channel(capacity = Channel.UNLIMITED)
+    private val _giftChannel: Channel<GiftMessage> = Channel(capacity = Channel.UNLIMITED)
     private var _isActive = true
     private var _job: Job? = null
 
@@ -60,7 +60,7 @@ class GiftQueueImpl @Inject constructor(
         giftProcessor.removeProcessedGift(giftMessage)
     }
 
-    override suspend fun getGifts(): Flow<List<GiftMessage>> = flow {
+    override suspend fun getGifts(): Flow<GiftMessage> = flow {
         _giftChannel.consumeEach {
             Log.d("Ruben", "emit")
             emit(it)

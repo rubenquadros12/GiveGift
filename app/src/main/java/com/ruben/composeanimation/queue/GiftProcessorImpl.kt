@@ -17,13 +17,13 @@ class GiftProcessorImpl @Inject constructor() : GiftProcessor {
     private var _giftIndex = -1
     private var _callback: GiftListCallback? = null
 
-    override suspend fun processGift(giftMessage: GiftMessage): List<GiftMessage> {
+    override suspend fun processGift(giftMessage: GiftMessage): GiftMessage {
         Log.d("Ruben", "incoming from queue ${giftMessage.slab}")
         if (_giftList.isEmpty()) {
             //no gifts you can add
             _giftList.add(giftMessage)
             Log.d("Ruben", "nothing present so add $_giftList")
-            return _giftList.toList()
+            return _giftList[0]
         } else {
             if (giftMessage.slab.isHighTierSlab()) {
                 Log.d("Ruben", "incoming gift high tier ${giftMessage.slab}")
@@ -43,7 +43,7 @@ class GiftProcessorImpl @Inject constructor() : GiftProcessor {
                 }
                 _giftList.add(giftMessage)
                 Log.d("Ruben", "added high tier now $_giftList")
-                return _giftList.toList()
+                return _giftList[0]
             } else {
                 //Log.d("Ruben", "incoming gift else ${giftMessage.slab} ${giftList.size}")
                 when {
@@ -64,7 +64,7 @@ class GiftProcessorImpl @Inject constructor() : GiftProcessor {
                         }
                         _giftList.add(_giftIndex, giftMessage)
                         Log.d("Ruben", "added now low $_giftList")
-                        return _giftList.toList()
+                        return _giftList[_giftIndex]
                     }
                     _giftList[0].slab.isHighTierSlab() -> {
                         Log.d("Ruben", "already high tier playing ${giftMessage.slab}")
@@ -83,7 +83,7 @@ class GiftProcessorImpl @Inject constructor() : GiftProcessor {
                         }
                         _giftList.add(giftMessage)
                         Log.d("Ruben", "added now after high $_giftList")
-                        return _giftList.toList()
+                        return _giftList[0]
                     }
                     else -> {
                         //s1 or s2 gift present
@@ -91,11 +91,13 @@ class GiftProcessorImpl @Inject constructor() : GiftProcessor {
                         Log.d("Ruben", "s1 or s2 present ${giftMessage.slab}")
                         if (_giftIndex != -1) {
                             _giftList.add(_giftIndex, giftMessage)
+                            Log.d("Ruben", "added now after low $_giftList")
+                            return _giftList[_giftIndex]
                         } else {
                             _giftList.add(giftMessage)
+                            Log.d("Ruben", "added now after low $_giftList")
+                            return _giftList[1]
                         }
-                        Log.d("Ruben", "added now after low $_giftList")
-                        return _giftList.toList()
                     }
                 }
             }
@@ -104,7 +106,9 @@ class GiftProcessorImpl @Inject constructor() : GiftProcessor {
 
     override fun removeProcessedGift(giftMessage: GiftMessage) {
         _giftIndex = _giftList.indexOfFirst { it.id == giftMessage.id }
+        Log.d("Ruben", "remove index $_giftIndex")
         _giftList.removeAt(_giftIndex)
+        Log.d("Ruben", "remove size ${_giftList.size}")
         _callback?.onGiftListChanged(_giftList.size)
     }
 }

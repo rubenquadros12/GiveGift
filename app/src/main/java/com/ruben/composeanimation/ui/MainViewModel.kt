@@ -62,7 +62,8 @@ class MainViewModel @Inject constructor(private val repo: MainRepo): ContainerHo
         }.buffer().collect {
            giftMap[it.id] = it
             reduce {
-                state.copy(giftList = giftMap.values.toList())
+                //state.copy(giftList = giftMap.values.toList())
+                state.copy()
             }
         }
     }

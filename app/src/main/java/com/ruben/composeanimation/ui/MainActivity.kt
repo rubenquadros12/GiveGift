@@ -143,7 +143,8 @@ fun MainContent(mainViewModel: MainViewModel, mainViewModel2: MainViewModel2) {
     }
     val uiState by uiStateFlowLifecycleAware.collectAsState(initial = mainViewModel2.createInitialState())
 
-    val giftList = uiState.giftList
+
+    //val giftList = uiState.giftList
 
     Box(modifier = Modifier.fillMaxSize()) {
 
@@ -156,7 +157,9 @@ fun MainContent(mainViewModel: MainViewModel, mainViewModel2: MainViewModel2) {
             Text(text = "Clear DB")
         }
 
-        if (giftList.any { it.slab == Slab.SLAB_5.toString() }) {
+        StickyComments(mainViewModel2 = mainViewModel2)
+
+        /*if (giftList.any { it.slab == Slab.SLAB_5.toString() }) {
             Slab5Anim {
                 GiftMessageContent(
                     giftMessage = giftList[0],
@@ -180,7 +183,7 @@ fun MainContent(mainViewModel: MainViewModel, mainViewModel2: MainViewModel2) {
                     )
                 }
             }
-        }
+        } */
 
         LazyRow(
             modifier = Modifier
