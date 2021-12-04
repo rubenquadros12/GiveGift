@@ -105,7 +105,7 @@ fun Slot2(giftMessage: GiftMessage, onGiftClear: (GiftMessage, Boolean) -> Unit)
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun Slab5Gift(modifier: Modifier = Modifier, giftMessage: GiftMessage, onGiftClear: (GiftMessage) -> Unit) {
-    GiftItem(giftMessage = giftMessage, onGiftClear = { gift -> onGiftClear.invoke(gift) })
+    GiftItem(modifier = modifier, giftMessage = giftMessage, onGiftClear = { gift -> onGiftClear.invoke(gift) })
 }
 
 @OptIn(ExperimentalAnimationApi::class)
@@ -146,9 +146,11 @@ fun GiftItem(modifier: Modifier = Modifier, giftMessage: GiftMessage, onGiftClea
 
     //Log.d("Ruben", "giftItem $isVisible")
 
-    LaunchedEffect(key1 = true) {
+    LaunchedEffect(key1 = giftMessage) {
+        Log.d("Ruben", "launched effect begin")
         delay(giftMessage.totalDuration)
         onGiftClear.invoke(giftMessage)
+        Log.d("Ruben", "launched effect clear")
         //isVisible = false
     }
 

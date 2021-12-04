@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import javax.inject.Inject
+import kotlin.coroutines.resume
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 /**
  * Created by Ruben Quadros on 30/11/21
@@ -28,8 +30,12 @@ class GiftQueueImpl @Inject constructor(
     private val _giftChannel: Channel<GiftMessage> = Channel(capacity = Channel.UNLIMITED)
     private var _isActive = true
     private var _job: Job? = null
+    private var _isPause = false
+    private var _resumeCallback: ResumeCallback? = null
 
     override suspend fun initialize() {
+        _isActive = true
+        Log.d("Ruben", "init")
         createPriorityChannel()
         _job = CoroutineScope(Dispatchers.Default).launch { queueGiftsInternal() }
     }
@@ -80,11 +86,18 @@ class GiftQueueImpl @Inject constructor(
     }
 
     override fun pauseQueue() {
-
+        //for viewer you can shutdown on pause
+        //shutDown()
+        //if host goes in pause you should hold onto values in queue
+        _isPause = true
     }
 
-    override fun resumeQueue() {
-
+    override suspend fun resumeQueue() {
+        //for viewer you can reinitialize on resume
+        //initialize()
+        //if host resumes you need to resume queue from previous point
+        _resumeCallback?.onResume()
+        _isPause = false
     }
 
     private fun createPriorityChannel() {
@@ -99,6 +112,19 @@ class GiftQueueImpl @Inject constructor(
     private suspend fun queueGiftsInternal() {
         //wait for collection if paused
         while (_isActive) {
+            if (_isPause) {
+                suspendCancellableCoroutine<Unit> { continuation ->
+                    Log.d("Ruben", "pause the collection")
+                    _resumeCallback = object : ResumeCallback {
+                        override fun onResume() {
+                            if (continuation.isActive) {
+                                Log.d("Ruben", "resume the collection")
+                                continuation.resume(Unit)
+                            }
+                        }
+                    }
+                }
+            }
             select<Unit> {
                 _priorityChannels.values.forEach {
                     it.onReceiveCatching { result ->
@@ -110,4 +136,8 @@ class GiftQueueImpl @Inject constructor(
             }
         }
     }
+}
+
+interface ResumeCallback {
+    fun onResume()
 }

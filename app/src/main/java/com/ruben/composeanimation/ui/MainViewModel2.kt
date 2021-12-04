@@ -93,11 +93,13 @@ class MainViewModel2 @Inject constructor(
         //messageQueue.clearGift(giftMessage)
     }
 
-    fun onStart() {
+    fun onStart() = intent {
+        Log.d("Ruben", "resume")
         giftQueue.resumeQueue()
     }
 
     fun onStop() = intent {
+        Log.d("Ruben", "pause")
         giftQueue.pauseQueue()
     }
 
