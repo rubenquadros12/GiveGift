@@ -87,7 +87,7 @@ class MainViewModel2 @Inject constructor(
         } else {
             state.copy(slot2 = null)
         } }.also {
-            delay(100)
+            //delay(100)
             giftQueue.dequeue(giftMessage)
         }
         //messageQueue.clearGift(giftMessage)
