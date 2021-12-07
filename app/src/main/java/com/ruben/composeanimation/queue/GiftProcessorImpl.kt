@@ -19,88 +19,13 @@ class GiftProcessorImpl @Inject constructor() : GiftProcessor {
 
     override suspend fun processGift(giftMessage: GiftMessage): GiftMessage {
         Log.d("Ruben", "incoming from queue ${giftMessage.slab}")
-        if (_giftList.isEmpty()) {
-            //no gifts you can add
-            _giftList.add(giftMessage)
+        return if (isProcessEmpty()) {
+            //no gifts present you can add
             Log.d("Ruben", "nothing present so add $_giftList")
-            return _giftList[0]
+            addGift(giftMessage = giftMessage)
         } else {
-            if (giftMessage.slab.isHighTierSlab()) {
-                Log.d("Ruben", "incoming gift high tier ${giftMessage.slab}")
-                //wait for all gifts to be shown
-                suspendCancellableCoroutine<Unit> { continuation ->
-                    Log.d("Ruben", "in suspendCancellableCoroutine")
-                    _callback = object : GiftListCallback {
-                        override fun onGiftListChanged(size: Int) {
-                            if (size == 0) {
-                                if (continuation.isActive) {
-                                    Log.d("Ruben", "resume suspendCancellableCoroutine")
-                                    continuation.resume(Unit)
-                                }
-                            }
-                        }
-                    }
-                }
-                _giftList.add(giftMessage)
-                Log.d("Ruben", "added high tier now $_giftList")
-                return _giftList[0]
-            } else {
-                //Log.d("Ruben", "incoming gift else ${giftMessage.slab} ${giftList.size}")
-                when {
-                    _giftList.size == GiftConstants.MAX_VISIBLE_GIFTS -> {
-                        Log.d("Ruben", "size is 2 ${giftMessage.slab}")
-                        //wait for a gift to finish displaying
-                        suspendCancellableCoroutine<Unit> { continuation ->
-                            _callback = object : GiftListCallback {
-                                override fun onGiftListChanged(size: Int) {
-                                    if (size == 1) {
-                                        if (continuation.isActive) {
-                                            Log.d("Ruben", "resume suspendCancellableCoroutine")
-                                            continuation.resume(Unit)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        _giftList.add(_giftIndex, giftMessage)
-                        Log.d("Ruben", "added now low $_giftList")
-                        return _giftList[_giftIndex]
-                    }
-                    _giftList[0].slab.isHighTierSlab() -> {
-                        Log.d("Ruben", "already high tier playing ${giftMessage.slab}")
-                        //wait for the gift to finish displaying
-                        suspendCancellableCoroutine<Unit> { continuation ->
-                            _callback = object : GiftListCallback {
-                                override fun onGiftListChanged(size: Int) {
-                                    if (size == 0) {
-                                        if (continuation.isActive) {
-                                            Log.d("Ruben", "resume suspendCancellableCoroutine")
-                                            continuation.resume(Unit)
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        _giftList.add(giftMessage)
-                        Log.d("Ruben", "added now after high $_giftList")
-                        return _giftList[0]
-                    }
-                    else -> {
-                        //s1 or s2 gift present
-                        //can add one more s1 or s2 gift
-                        Log.d("Ruben", "s1 or s2 present ${giftMessage.slab}")
-                        if (_giftIndex != -1) {
-                            _giftList.add(_giftIndex, giftMessage)
-                            Log.d("Ruben", "added now after low $_giftList")
-                            return _giftList[_giftIndex]
-                        } else {
-                            _giftList.add(giftMessage)
-                            Log.d("Ruben", "added now after low $_giftList")
-                            return _giftList[1]
-                        }
-                    }
-                }
-            }
+            //process gift
+            processIncomingGiftInternal(giftMessage = giftMessage)
         }
     }
 
@@ -110,6 +35,83 @@ class GiftProcessorImpl @Inject constructor() : GiftProcessor {
         _giftList.removeAt(_giftIndex)
         Log.d("Ruben", "remove size ${_giftList.size}")
         _callback?.onGiftListChanged(_giftList.size)
+    }
+
+    private fun isProcessEmpty(): Boolean = _giftList.isEmpty()
+
+    private fun isProcessFull(): Boolean = _giftList.size == GiftConstants.MAX_VISIBLE_GIFTS
+
+    private fun isHighTierGiftDisplaying(): Boolean = _giftList[0].slab.isHighTierSlab()
+
+    private suspend fun processIncomingGiftInternal(giftMessage: GiftMessage): GiftMessage {
+        if (giftMessage.slab.isHighTierSlab()) {
+            Log.d("Ruben", "incoming gift high tier ${giftMessage.slab}")
+            //wait for all gifts to be shown
+            return addHighTierGift(giftMessage)
+        } else {
+            when {
+                isProcessFull() -> {
+                    //wait for a gift to finish displaying
+                    Log.d("Ruben", "size is 2 ${giftMessage.slab}")
+                    return addLowTierGift(giftMessage)
+                }
+
+                isHighTierGiftDisplaying() -> {
+                    //wait for all gifts to finish displaying
+                    Log.d("Ruben", "already high tier playing ${giftMessage.slab}")
+                    return addHighTierGift(giftMessage)
+                }
+                else -> {
+                    //s1 or s2 gift present
+                    //can add one more s1 or s2 gift
+                    Log.d("Ruben", "s1 or s2 present ${giftMessage.slab}")
+                    return if (_giftIndex != -1) {
+                        addGift(index = _giftIndex, giftMessage = giftMessage)
+                    } else {
+                        Log.d("Ruben", "added now after low $_giftList")
+                        addGift(index = 1, giftMessage = giftMessage)
+                    }
+                }
+            }
+        }
+    }
+
+    private fun addGift(index: Int = 0, giftMessage: GiftMessage): GiftMessage {
+        _giftList.add(index, giftMessage)
+        return _giftList[index]
+    }
+
+    private suspend fun addHighTierGift(giftMessage: GiftMessage): GiftMessage {
+        suspendCancellableCoroutine<Unit> { continuation ->
+            Log.d("Ruben", "in suspendCancellableCoroutine")
+            _callback = object : GiftListCallback {
+                override fun onGiftListChanged(size: Int) {
+                    if (size == 0) {
+                        if (continuation.isActive) {
+                            Log.d("Ruben", "resume suspendCancellableCoroutine")
+                            continuation.resume(Unit)
+                        }
+                    }
+                }
+            }
+        }
+        return addGift(giftMessage = giftMessage)
+    }
+
+    private suspend fun addLowTierGift(giftMessage: GiftMessage): GiftMessage {
+        suspendCancellableCoroutine<Unit> { continuation ->
+            _callback = object : GiftListCallback {
+                override fun onGiftListChanged(size: Int) {
+                    if (size == 1) {
+                        if (continuation.isActive) {
+                            Log.d("Ruben", "resume suspendCancellableCoroutine")
+                            continuation.resume(Unit)
+                        }
+                    }
+                }
+            }
+        }
+        return addGift(index = _giftIndex, giftMessage = giftMessage)
     }
 }
 

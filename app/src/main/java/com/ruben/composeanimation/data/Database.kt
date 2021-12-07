@@ -25,6 +25,8 @@ data class GiftMessage(
     val slab: String = "",
     @ColumnInfo(name = "message")
     val message: String = "",
+    @ColumnInfo(name = "anim_duration")
+    val animDuration: Long = 0,
     @ColumnInfo(name = "total_duration")
     val totalDuration: Long = 0
 )
