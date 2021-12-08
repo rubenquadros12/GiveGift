@@ -51,6 +51,9 @@ class MainViewModel2 @Inject constructor(
         giftQueue.getGifts().collect {
             Log.d("Ruben", "ui data $it")
             when {
+                it.slab == Slab.SLAB_5.toString() -> {
+                    reduce { state.copy(specialSlot = it) }
+                }
                 state.slot1 == null && state.slot2 == null -> {
                     Log.d("Ruben", "select slot both null ${it.slab}, ${it.id}")
                     reduce { state.copy(slot1 = it) }
@@ -76,21 +79,29 @@ class MainViewModel2 @Inject constructor(
 
         useCase.getGifts().collect {
             Log.d("Ruben", "got from usecase ${it.slab}")
-            giftQueue.enqueue(it)
+            giftQueue.enqueue(it).collect {
+                //check status
+            }
         }
     }
 
-    fun clearGift(giftMessage: GiftMessage, isFirstSlot: Boolean = false) = intent {
-        Log.d("Ruben", "clear gift ${giftMessage.slab}, ${giftMessage.id}, $isFirstSlot")
-        reduce { if (isFirstSlot) {
-            state.copy(slot1 = null)
-        } else {
-            state.copy(slot2 = null)
+    fun clearGift(giftMessage: GiftMessage, slot: Slot) = intent {
+        Log.d("Ruben", "clear gift ${giftMessage.slab}, ${giftMessage.id}, ${slot.name}")
+        reduce { when (slot) {
+            Slot.SLOT_1 -> state.copy(slot1 = null)
+            Slot.SLOT_2 -> state.copy(slot2 = null)
+            else -> state
         } }.also {
             //delay(100)
-            giftQueue.dequeue(giftMessage)
+            giftQueue.dequeue(giftMessage).collect {
+                //check status
+            }
         }
         //messageQueue.clearGift(giftMessage)
+    }
+
+    fun clearSpecialSlot() = intent {
+        reduce { state.copy(specialSlot = null) }
     }
 
     fun onStart() = intent {

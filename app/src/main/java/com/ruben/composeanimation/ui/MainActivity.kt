@@ -135,9 +135,9 @@ fun MainContent(mainViewModel: MainViewModel, mainViewModel2: MainViewModel2) {
         mainViewModel.addNewGift(count = count, slab = slab, message = slab.toString())
     }
 
-    fun onGiftCleared(giftMessage: GiftMessage) {
-        mainViewModel2.clearGift(giftMessage)
-    }
+//    fun onGiftCleared(giftMessage: GiftMessage) {
+//        mainViewModel2.clearGift(giftMessage)
+//    }
 
     val lifecycleOwner = LocalLifecycleOwner.current
     val uiStateFlow = mainViewModel2.uiState

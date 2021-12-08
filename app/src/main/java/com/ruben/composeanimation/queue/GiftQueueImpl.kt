@@ -3,6 +3,11 @@ package com.ruben.composeanimation.queue
 import android.util.Log
 import com.ruben.composeanimation.data.GiftMessage
 import com.ruben.composeanimation.download.GiftDownloader
+import com.ruben.composeanimation.queue.models.DequeueResult
+import com.ruben.composeanimation.queue.models.EnqueueResult
+import com.ruben.composeanimation.queue.models.GiftDequeued
+import com.ruben.composeanimation.queue.models.GiftEnqueued
+import com.ruben.composeanimation.queue.models.GiftNotDownloaded
 import com.ruben.composeanimation.ui.Slab
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -40,7 +45,7 @@ class GiftQueueImpl @Inject constructor(
         _job = CoroutineScope(Dispatchers.Default).launch { queueGiftsInternal() }
     }
 
-    override suspend fun enqueue(giftMessage: GiftMessage) {
+    override suspend fun enqueue(giftMessage: GiftMessage): Flow<EnqueueResult> = flow {
         if (giftDownloader.isDownloadRequired(giftMessage)) {
             if (giftMessage.userId == "123") {
                 giftDownloader.downloadAsset(giftMessage).collect {
@@ -51,6 +56,7 @@ class GiftQueueImpl @Inject constructor(
                     if (it) _priorityChannels[giftMessage.slab]?.send(giftMessage)
                 }
             }
+            emit(GiftNotDownloaded(giftMessage))
         } else {
             if (giftMessage.userId == "123") {
                 Log.d("Ruben", "send self")
@@ -59,11 +65,13 @@ class GiftQueueImpl @Inject constructor(
                 Log.d("Ruben", "send others")
                 _priorityChannels[giftMessage.slab]?.send(giftMessage)
             }
+            emit(GiftEnqueued(giftMessage))
         }
     }
 
-    override suspend fun dequeue(giftMessage: GiftMessage) {
+    override suspend fun dequeue(giftMessage: GiftMessage): Flow<DequeueResult> = flow {
         giftProcessor.removeProcessedGift(giftMessage)
+        emit(GiftDequeued(giftMessage))
     }
 
     override suspend fun getGifts(): Flow<GiftMessage> = flow {
@@ -129,6 +137,7 @@ class GiftQueueImpl @Inject constructor(
                 _priorityChannels.values.forEach {
                     it.onReceiveCatching { result ->
                         result.getOrNull()?.let { gift ->
+                            //can filter if gift doesnt need to be processed
                             _giftChannel.send(giftProcessor.processGift(gift))
                         }
                     }

@@ -1,6 +1,8 @@
 package com.ruben.composeanimation.queue
 
 import com.ruben.composeanimation.data.GiftMessage
+import com.ruben.composeanimation.queue.models.DequeueResult
+import com.ruben.composeanimation.queue.models.EnqueueResult
 import kotlinx.coroutines.flow.Flow
 
 /**
@@ -8,8 +10,8 @@ import kotlinx.coroutines.flow.Flow
  **/
 interface GiftQueue {
     suspend fun initialize()
-    suspend fun enqueue(giftMessage: GiftMessage)
-    suspend fun dequeue(giftMessage: GiftMessage)
+    suspend fun enqueue(giftMessage: GiftMessage): Flow<EnqueueResult>
+    suspend fun dequeue(giftMessage: GiftMessage): Flow<DequeueResult>
     suspend fun getGifts(): Flow<GiftMessage>
     fun pauseQueue()
     suspend fun resumeQueue()

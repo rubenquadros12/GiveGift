@@ -41,6 +41,7 @@ class MainViewModel @Inject constructor(private val repo: MainRepo) :
                 id = System.currentTimeMillis(),
                 slab = slab.toString(),
                 message = message,
+                animDuration = slab.animDuration,
                 totalDuration = slab.duration,
                 userId = if (count % 5 == 0) "ruben" else "pulak",
                 resourceName = slab.resourceName
@@ -71,33 +72,33 @@ class MainViewModel @Inject constructor(private val repo: MainRepo) :
     }
 }
 
-enum class Slab(val resourceName: String, val duration: Long) {
+enum class Slab(val resourceName: String, val duration: Long, val animDuration: Long) {
 
-    SLAB_1("tea_samosa_1.webp", 1_500) {
+    SLAB_1("tea_samosa_1.webp", 1_500, 0) {
         override fun toString(): String {
             return "slab1"
         }
     },
 
-    SLAB_2("thumbs_up_2.webp", 2_500) {
+    SLAB_2("thumbs_up_2.webp", 2_500, 1_500) {
         override fun toString(): String {
             return "slab2"
         }
     },
 
-    SLAB_3("drums_3.webp", 4_500) {
+    SLAB_3("drums_3.webp", 4_500, 3_000) {
         override fun toString(): String {
             return "slab3"
         }
     },
 
-    SLAB_4("drums_3.webp", 5_500) {
+    SLAB_4("drums_3.webp", 5_500, 4_000) {
         override fun toString(): String {
             return "slab4"
         }
     },
 
-    SLAB_5("mia_5.webp", 9_500) {
+    SLAB_5("mia_5.webp", 9_500, 5_000) {
         override fun toString(): String {
             return "slab5"
         }
@@ -110,4 +111,8 @@ enum class Slab(val resourceName: String, val duration: Long) {
                     || name == SLAB_5.toString()
         }
     }
+}
+
+enum class Slot {
+    SLOT_1, SLOT_2, SPECIAL_SLOT
 }

@@ -36,6 +36,7 @@ import com.ruben.composeanimation.data.GiftMessage
 import com.ruben.composeanimation.ui.MainState
 import com.ruben.composeanimation.ui.MainViewModel2
 import com.ruben.composeanimation.ui.Slab
+import com.ruben.composeanimation.ui.Slot
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -46,8 +47,12 @@ import kotlinx.coroutines.launch
 @Composable
 fun StickyComments(mainViewModel2: MainViewModel2) {
 
-    fun onGiftClear(giftMessage: GiftMessage, isFirstSlot: Boolean) {
-        mainViewModel2.clearGift(giftMessage, isFirstSlot)
+    fun onGiftClear(giftMessage: GiftMessage, slot: Slot) {
+        mainViewModel2.clearGift(giftMessage, slot)
+    }
+
+    fun onSpecialSlotClear() {
+        mainViewModel2.clearSpecialSlot()
     }
 
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -74,27 +79,26 @@ fun StickyComments(mainViewModel2: MainViewModel2) {
 
     //decide where to place the view
     Box(modifier = Modifier.fillMaxSize()) {
-        if (uiState.slot1?.slab == Slab.SLAB_5.toString()) {
-            uiState.slot1?.let {
-                Slab5Gift(
-                    modifier = Modifier.align(BiasAlignment(0.5f, 0.2f)),
-                    giftMessage = it,
-                    onGiftClear = { gift -> onGiftClear(gift, true) }
-                )
-            }
-        } else {
-            StickyCommentsUI(
-                modifier = Modifier.align(Alignment.CenterStart),
-                uiState = uiState,
-                showCenterAnim = {
-                    centerGiftState = it
-                },
-                onGiftClear = { gift, isFirstSlot ->
-                    onGiftClear(gift, isFirstSlot)
-                    centerGiftState = null
-                }
+        uiState.specialSlot?.let {
+            Slab5Gift(
+                modifier = Modifier.align(Alignment.Center),
+                giftMessage = it,
+                onGiftClear = { gift -> onGiftClear(gift, Slot.SPECIAL_SLOT) },
+                onSpecialSlotClear = { onSpecialSlotClear() }
             )
         }
+
+        StickyCommentsUI(
+            modifier = Modifier.align(Alignment.CenterStart),
+            uiState = uiState,
+            showCenterAnim = {
+                centerGiftState = it
+            },
+            onGiftClear = { gift, slot ->
+                onGiftClear(gift, slot)
+                centerGiftState = null
+            }
+        )
         if (webpDrawable != null)
             CenterAnimation(webpDrawable, centerGiftState!!)
     }
@@ -196,7 +200,7 @@ fun StickyCommentsUI(
     modifier: Modifier = Modifier,
     uiState: MainState,
     showCenterAnim: (CenterGift) -> Unit,
-    onGiftClear: (GiftMessage, Boolean) -> Unit
+    onGiftClear: (GiftMessage, Slot) -> Unit
 ) {
     Column(modifier = modifier.padding(16.dp)) {
 
@@ -224,27 +228,25 @@ fun StickyCommentsUI(
 
 @ExperimentalAnimationApi
 @Composable
-fun Slot1(giftMessage: GiftMessage, onGiftClear: (GiftMessage, Boolean) -> Unit) {
-    GiftItem(giftMessage = giftMessage, onGiftClear = { gift -> onGiftClear.invoke(gift, true) })
+fun Slot1(giftMessage: GiftMessage, onGiftClear: (GiftMessage, Slot) -> Unit) {
+    GiftItem(giftMessage = giftMessage, onGiftClear = { gift -> onGiftClear.invoke(gift, Slot.SLOT_1) })
 }
 
 @ExperimentalAnimationApi
 @Composable
-fun Slot2(giftMessage: GiftMessage, onGiftClear: (GiftMessage, Boolean) -> Unit) {
-    GiftItem(giftMessage = giftMessage, onGiftClear = { gift -> onGiftClear.invoke(gift, false) })
+fun Slot2(giftMessage: GiftMessage, onGiftClear: (GiftMessage, Slot) -> Unit) {
+    GiftItem(giftMessage = giftMessage, onGiftClear = { gift -> onGiftClear.invoke(gift, Slot.SLOT_2) })
 }
 
 @ExperimentalAnimationApi
 @Composable
-fun Slab5Gift(
-    modifier: Modifier = Modifier,
-    giftMessage: GiftMessage,
-    onGiftClear: (GiftMessage) -> Unit
-) {
-    GiftItem(
+fun Slab5Gift(modifier: Modifier = Modifier, giftMessage: GiftMessage, onGiftClear: (GiftMessage) -> Unit, onSpecialSlotClear: () -> Unit) {
+    GiftItem5(
         modifier = modifier,
         giftMessage = giftMessage,
-        onGiftClear = { gift -> onGiftClear.invoke(gift) })
+        onGiftClear = { gift -> onGiftClear.invoke(gift) },
+        onSpecialSlotClear = onSpecialSlotClear
+    )
 }
 
 @ExperimentalAnimationApi
@@ -317,6 +319,26 @@ fun GiftItem(
 //            Text(modifier = Modifier.padding(8.dp), text = giftMessage.message, fontWeight = FontWeight.W700, color = Color.White)
 //        }
 //    }
+}
+
+@OptIn(ExperimentalAnimationApi::class)
+@Composable
+fun GiftItem5(modifier: Modifier = Modifier, giftMessage: GiftMessage, onGiftClear: (GiftMessage) -> Unit, onSpecialSlotClear: () -> Unit) {
+    LaunchedEffect(key1 = giftMessage) {
+        Log.d("Ruben", "launched effect begin")
+        delay(giftMessage.animDuration)
+        onGiftClear.invoke(giftMessage)
+        delay(giftMessage.totalDuration-giftMessage.animDuration)
+        Log.d("Ruben", "launched effect clear")
+        onSpecialSlotClear.invoke()
+        //isVisible = false
+    }
+
+    Box(modifier = modifier
+        .layoutId("gift_content")
+        .background(shape = RoundedCornerShape(10.dp), color = Color.Red)) {
+        Text(modifier = Modifier.padding(8.dp), text = giftMessage.message, fontWeight = FontWeight.W700, color = Color.White)
+    }
 }
 
 enum class CurrentView {
