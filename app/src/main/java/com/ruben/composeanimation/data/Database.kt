@@ -26,7 +26,9 @@ data class GiftMessage(
     @ColumnInfo(name = "message")
     val message: String = "",
     @ColumnInfo(name = "total_duration")
-    val totalDuration: Long = 0
+    val totalDuration: Long = 0,
+    @ColumnInfo(name = "res_name")
+    val resourceName: String = ""
 )
 
 @Dao

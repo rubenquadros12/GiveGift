@@ -54,6 +54,7 @@ class MainActivity : ComponentActivity() {
     private val mainViewModel: MainViewModel by viewModels()
     private val mainViewModel2: MainViewModel2 by viewModels()
 
+    @ExperimentalAnimationApi
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
@@ -79,6 +80,7 @@ class MainActivity : ComponentActivity() {
     }
 }
 
+@OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun StickyCommentContent(mainViewModel: MainViewModel, mainViewModel2: MainViewModel2) {
     fun onSlabClick(slab: Slab) {
@@ -124,6 +126,7 @@ fun StickyCommentContent(mainViewModel: MainViewModel, mainViewModel2: MainViewM
         }
     }
 
+@ExperimentalAnimationApi
 @Composable
 fun MainContent(mainViewModel: MainViewModel, mainViewModel2: MainViewModel2) {
     var count by remember { mutableStateOf(0) }

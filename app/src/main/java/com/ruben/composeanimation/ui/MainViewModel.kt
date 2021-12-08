@@ -19,7 +19,8 @@ import javax.inject.Inject
  * Created by Ruben Quadros on 27/11/21
  **/
 @HiltViewModel
-class MainViewModel @Inject constructor(private val repo: MainRepo): ContainerHost<MainState, Nothing>,  ViewModel() {
+class MainViewModel @Inject constructor(private val repo: MainRepo) :
+    ContainerHost<MainState, Nothing>, ViewModel() {
 
     private val giftMap: MutableMap<Long, GiftMessage> = mutableMapOf()
 
@@ -34,14 +35,15 @@ class MainViewModel @Inject constructor(private val repo: MainRepo): ContainerHo
     fun createInitialState() = MainState()
 
     fun addNewGift(count: Int, slab: Slab, message: String) = intent {
-        Log.d("Ruben", "userdId $count, ${count%5}")
+        Log.d("Ruben", "userdId $count, ${count % 5}")
         repo.insertNewGift(
             GiftMessage(
                 id = System.currentTimeMillis(),
                 slab = slab.toString(),
                 message = message,
                 totalDuration = slab.duration,
-                userId = if (count%5 == 0) "123" else "456"
+                userId = if (count % 5 == 0) "ruben" else "pulak",
+                resourceName = slab.resourceName
             )
         )
     }
@@ -60,7 +62,7 @@ class MainViewModel @Inject constructor(private val repo: MainRepo): ContainerHo
                 //wait
             } while (giftMap.size == 2)
         }.buffer().collect {
-           giftMap[it.id] = it
+            giftMap[it.id] = it
             reduce {
                 //state.copy(giftList = giftMap.values.toList())
                 state.copy()
@@ -69,36 +71,43 @@ class MainViewModel @Inject constructor(private val repo: MainRepo): ContainerHo
     }
 }
 
-enum class Slab(val duration: Long) {
+enum class Slab(val resourceName: String, val duration: Long) {
 
-    SLAB_1(1_500) {
+    SLAB_1("tea_samosa_1.webp", 1_500) {
         override fun toString(): String {
             return "slab1"
         }
     },
 
-    SLAB_2(2_500) {
+    SLAB_2("thumbs_up_2.webp", 2_500) {
         override fun toString(): String {
             return "slab2"
         }
     },
 
-    SLAB_3(4_500) {
+    SLAB_3("drums_3.webp", 4_500) {
         override fun toString(): String {
             return "slab3"
         }
     },
 
-    SLAB_4(5_500) {
+    SLAB_4("drums_3.webp", 5_500) {
         override fun toString(): String {
             return "slab4"
         }
     },
 
-    SLAB_5(9_500) {
+    SLAB_5("mia_5.webp", 9_500) {
         override fun toString(): String {
             return "slab5"
         }
     };
 
+    companion object {
+        fun isHigherSlab(name: String): Boolean {
+            return name == SLAB_3.toString()
+                    || name == SLAB_4.toString()
+                    || name == SLAB_5.toString()
+        }
+    }
 }
