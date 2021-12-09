@@ -2,7 +2,6 @@ package com.ruben.composeanimation.ui
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
-import com.ruben.composeanimation.data.GiftMessage
 import com.ruben.composeanimation.data.MessageQueue
 import com.ruben.composeanimation.data.MockData
 import com.ruben.composeanimation.domain.GetGiftUseCase
@@ -13,13 +12,13 @@ import com.ruben.composeanimation.download.models.CacheScanSuccess
 import com.ruben.composeanimation.download.models.NoCacheDirectory
 import com.ruben.composeanimation.queue.GiftQueue
 import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 import kotlinx.coroutines.flow.collect
 import org.orbitmvi.orbit.Container
 import org.orbitmvi.orbit.ContainerHost
 import org.orbitmvi.orbit.syntax.simple.intent
 import org.orbitmvi.orbit.syntax.simple.reduce
 import org.orbitmvi.orbit.viewmodel.container
-import javax.inject.Inject
 
 /**
  * Created by Ruben Quadros on 28/11/21
@@ -34,6 +33,7 @@ class MainViewModel2 @Inject constructor(
 
     override val container: Container<MainState, Nothing> by lazy {
         container(initialState = createInitialState()) {
+            initCache()
             scanCache()
             getNewGiftsInternal()
             getQueuedGifts()
@@ -44,6 +44,10 @@ class MainViewModel2 @Inject constructor(
     val uiState = container.stateFlow
 
     fun createInitialState() = MainState()
+
+    private fun initCache() = intent {
+        giftCache.initialize()
+    }
 
     private fun scanCache() = intent {
         giftCache.performCacheScan().collect { cacheScanResult ->

@@ -15,7 +15,6 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.ruben.composeanimation.R
 import com.ruben.composeanimation.data.DownloadRepo
-import com.ruben.composeanimation.download.models.GiftInfo
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import javax.inject.Inject

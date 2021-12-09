@@ -55,7 +55,9 @@ data class GiftAnimation(
     @ColumnInfo(name = "updated_at")
     val updatedTime: Long = -1,
     @ColumnInfo(name = "status")
-    val giftStatus: GiftStatus
+    val giftStatus: GiftStatus,
+    @ColumnInfo(name = "request_id")
+    val requestId: Long
 )
 
 enum class GiftStatus {
@@ -73,6 +75,9 @@ interface GiftDao {
 
     @Query("DELETE FROM `gift_message`")
     suspend fun clearGifts()
+
+    @Query("SELECT * FROM `gift_message` WHERE `comment_id` =:commentId")
+    suspend fun getGift(commentId: Long): GiftMessage?
 }
 
 @Dao
@@ -86,11 +91,17 @@ interface AnimationDao {
     @Query("UPDATE `gift_animation` SET `updated_at` =:timestamp WHERE (`animation_source` =:source OR `sound_source` =:source)")
     suspend fun updateLastUsedTime(timestamp: Long, source: String)
 
-    @Query("UPDATE `gift_animation` SET `status` =:giftStatus WHERE `gift_id` =:giftId")
-    suspend fun updateGiftStatus(giftId: String, giftStatus: GiftStatus)
+    @Query("UPDATE `gift_animation` SET `updated_at` =:updatedTime, `sound_location` =:audioLocation, `animation_location` =:animLocation, `status` =:giftStatus WHERE `gift_id` =:giftId")
+    suspend fun updateGiftDownloadStatus(
+        giftId: String,
+        giftStatus: GiftStatus,
+        animLocation: String,
+        audioLocation: String?,
+        updatedTime: Long
+    )
 
-    @Query("UPDATE `gift_animation` SET `sound_location` =:audioLocation, `animation_location` =:animLocation, `status` =:giftStatus WHERE `gift_id` =:giftId")
-    suspend fun updateGiftDownloadStatus(giftId: String, giftStatus: GiftStatus, animLocation: String, audioLocation: String?)
+    @Query("SELECT * FROM `gift_animation` ORDER BY `updated_at` DESC LIMIT 1")
+    fun getDownloadStatus(): Flow<GiftAnimation>
 
 }
 

@@ -3,27 +3,26 @@ package com.ruben.composeanimation.queue
 import android.util.Log
 import com.ruben.composeanimation.domain.GiftMessageEntity
 import com.ruben.composeanimation.download.GiftCache
-import com.ruben.composeanimation.download.models.CacheStarted
 import com.ruben.composeanimation.download.models.CacheSuccess
-import com.ruben.composeanimation.download.models.CachedResource
+import com.ruben.composeanimation.download.models.DownloadInfo
 import com.ruben.composeanimation.queue.models.DequeueResult
 import com.ruben.composeanimation.queue.models.EnqueueResult
 import com.ruben.composeanimation.queue.models.GiftDequeued
 import com.ruben.composeanimation.queue.models.GiftEnqueued
 import com.ruben.composeanimation.queue.models.GiftNotDownloaded
 import com.ruben.composeanimation.ui.Slab
+import javax.inject.Inject
+import kotlin.coroutines.resume
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
-import javax.inject.Inject
-import kotlin.coroutines.resume
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.suspendCancellableCoroutine
 
 /**
@@ -31,7 +30,8 @@ import kotlinx.coroutines.suspendCancellableCoroutine
  **/
 class GiftQueueImpl @Inject constructor(
     private val giftProcessor: GiftProcessor,
-    private val giftCache: GiftCache
+    private val giftCache: GiftCache,
+    private val queueUtil: QueueUtil
 ) : GiftQueue {
 
     private val _priorityChannels: MutableMap<String, Channel<GiftMessageEntity>> = mutableMapOf()
@@ -42,50 +42,31 @@ class GiftQueueImpl @Inject constructor(
     private var _resumeCallback: ResumeCallback? = null
 
     override suspend fun initialize() {
+        //giftCache.initialize()
         _isActive = true
         Log.d("Ruben", "init")
         createPriorityChannel()
+        observeCache()
         _job = CoroutineScope(Dispatchers.Default).launch { queueGiftsInternal() }
     }
 
     override suspend fun enqueue(giftMessage: GiftMessageEntity): Flow<EnqueueResult> = flow {
-        fun attachCachedResource(cachedResource: CachedResource) {
-            giftMessage.animSource = cachedResource.cachedAnimAsset
-            giftMessage.audioSource = cachedResource.cachedAudioAsset
-            Log.d("Ruben", "attaching cached values ${giftMessage.animSource}, ${giftMessage.audioSource}")
-        }
-
-        val result = giftCache.getCachedGift(giftMessage)
+        val result = giftCache.getCachedGift(id = giftMessage.giftId)
         Log.d("Ruben", "cache result $result")
         if (result != null) {
             if (giftMessage.userId == "123") {
                 Log.d("Ruben", "send self")
-                attachCachedResource(result)
+                giftMessage.attachCachedResource(result)
                 _priorityChannels["self"]?.send(giftMessage)
             } else {
                 Log.d("Ruben", "send others")
-                attachCachedResource(result)
+                giftMessage.attachCachedResource(result)
                 _priorityChannels[giftMessage.slab]?.send(giftMessage)
             }
             emit(GiftEnqueued(giftMessage))
         } else {
             emit(GiftNotDownloaded(giftMessage))
-            giftCache.cacheGift(giftMessage).collect { cacheResult ->
-                when (cacheResult) {
-                    is CacheStarted -> {
-                        //do nothing
-                        Log.d("Ruben", "just started cache")
-                    }
-                    is CacheSuccess -> {
-                        Log.d("Ruben", "cached values ${giftMessage.animSource}, ${giftMessage.audioSource}")
-                        if(giftMessage.userId == "123") {
-                            _priorityChannels["self"]?.send(giftMessage)
-                        } else {
-                            _priorityChannels[giftMessage.slab]?.send(giftMessage)
-                        }
-                    }
-                }
-            }
+            cacheGift(giftMessage)
         }
     }
 
@@ -128,6 +109,19 @@ class GiftQueueImpl @Inject constructor(
         _isPause = false
     }
 
+    private suspend fun cacheGift(giftMessage: GiftMessageEntity) {
+        giftCache.cacheGift(
+            DownloadInfo(
+                downloadId = giftMessage.giftId,
+                animUrl = giftMessage.animUrl,
+                audioUrl = giftMessage.audioUrl,
+                requestId = giftMessage.commentId
+            )
+        ).collect {
+            //check status
+        }
+    }
+
     private fun createPriorityChannel() {
         _priorityChannels["self"] = Channel(capacity = Channel.UNLIMITED)
         _priorityChannels[Slab.SLAB_5.toString()] = Channel(capacity = Channel.UNLIMITED)
@@ -157,8 +151,29 @@ class GiftQueueImpl @Inject constructor(
                 _priorityChannels.values.forEach {
                     it.onReceiveCatching { result ->
                         result.getOrNull()?.let { gift ->
+                            Log.d("Ruben", "selection done ${gift.slab}")
                             //can filter if gift doesnt need to be processed
                             _giftChannel.send(giftProcessor.processGift(gift))
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private suspend fun observeCache() {
+        giftCache.getCacheResult().collect { cacheResult ->
+            when (cacheResult) {
+                is CacheSuccess -> {
+                    //from request id determine ur gift
+                    //then send it to queue
+                    val giftMessage = queueUtil.getGiftMessage(cacheResult.downloadInfo.requestId)
+                    giftMessage?.let {
+                        it.attachCachedResource(cacheResult.cachedResource)
+                        if (it.userId == "123") {
+                            _priorityChannels["self"]?.send(it)
+                        } else {
+                            _priorityChannels[giftMessage.slab]?.send(it)
                         }
                     }
                 }

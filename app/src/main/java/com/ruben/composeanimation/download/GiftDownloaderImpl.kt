@@ -1,21 +1,24 @@
 package com.ruben.composeanimation.download
 
-import android.app.DownloadManager
-import android.content.BroadcastReceiver
 import android.content.Context
-import android.content.Context.DOWNLOAD_SERVICE
-import android.content.Intent
-import android.content.IntentFilter
 import android.util.Log
-import com.ruben.composeanimation.domain.GiftMessageEntity
+import androidx.lifecycle.asFlow
+import androidx.work.WorkInfo
+import androidx.work.WorkManager
+import androidx.work.WorkQuery
+import com.ruben.composeanimation.data.DbHelper
+import com.ruben.composeanimation.data.GiftAnimation
+import com.ruben.composeanimation.data.GiftStatus
 import com.ruben.composeanimation.download.models.DownloadResult
-import com.ruben.composeanimation.download.models.DownloadStarted
-import com.ruben.composeanimation.download.models.GiftInfo
+import com.ruben.composeanimation.download.models.DownloadInfo
 import com.ruben.composeanimation.download.models.PreDownloadStarted
+import com.ruben.composeanimation.download.models.PreDownloadSuccess
 import dagger.hilt.android.qualifiers.ApplicationContext
-import java.io.File
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filterNot
 import kotlinx.coroutines.flow.flow
 
 /**
@@ -23,46 +26,70 @@ import kotlinx.coroutines.flow.flow
  **/
 class GiftDownloaderImpl @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val dbHelper: DbHelper
 ) : GiftDownloader {
 
-    private val _downloadManager: DownloadManager = context.getSystemService(DOWNLOAD_SERVICE) as DownloadManager
-    private var _broadcastReceiver: BroadcastReceiver? = null
-
-    override fun initialize() {
-        _broadcastReceiver = object : BroadcastReceiver() {
-            override fun onReceive(context: Context?, intent: Intent?) {
-                Log.d("Ruben", "${intent?.extras}")
-            }
-        }
-        context.registerReceiver(_broadcastReceiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
-    }
-
-    override fun shutdown() {
-        context.unregisterReceiver(_broadcastReceiver)
-    }
-
-    override suspend fun downloadGift(giftMessage: GiftMessageEntity): Flow<DownloadResult> = flow {
-        if (giftMessage.audioSource == null) {
+    override suspend fun downloadGift(downloadInfo: DownloadInfo) {
+        //update status in db
+        updateDownloadStatus(downloadInfo = downloadInfo, giftStatus = GiftStatus.DOWNLOAD_QUEUED)
+        if (downloadInfo.audioUrl == null) {
             //download only anim
-            Log.d("Ruben", "start download ${giftMessage.giftId}, ${giftMessage.animSource}")
-            AnimDownloadWorker.enqueueAssetDownloadWork(context, giftMessage.giftId, giftMessage.animUrl)
+            Log.d("Ruben", "start download ${downloadInfo.downloadId}, ${downloadInfo.animUrl}")
+            AnimDownloadWorker.enqueueAssetDownloadWork(context, downloadInfo.downloadId, downloadInfo.animUrl)
         } else {
             //download both audio and anim
         }
-        emit(DownloadStarted(giftMessage))
     }
 
-    override suspend fun preDownloadGift(giftInfo: GiftInfo, file: File): Flow<DownloadResult> = flow {
-//        val request = DownloadManager.Request(Uri.parse(giftInfo.animUrl))
-//            .setNotificationVisibility(DownloadManager.Request.VISIBILITY_HIDDEN)
-//            .setDestinationUri(Uri.fromFile(file))
-//            .setAllowedOverMetered(true)
-//            .setAllowedOverRoaming(true)
-//
-//        val downloadId = _downloadManager.enqueue(request)
-        Log.d("Ruben", "queuing gift ${giftInfo.giftId}")
-        AnimDownloadWorker.enqueueAssetDownloadWork(context, giftInfo.giftId, giftInfo.animUrl)
+    override suspend fun preDownloadGifts(downloads: List<DownloadInfo>): Flow<DownloadResult> = flow {
+        val downloadList: MutableList<String> = mutableListOf()
 
-        emit(PreDownloadStarted(giftInfo))
+        downloads.forEach {
+            Log.d("Ruben", "queuing gift ${it.downloadId}")
+            //update status in db
+            updateDownloadStatus(downloadInfo = it, giftStatus = GiftStatus.DOWNLOAD_QUEUED)
+
+            AnimDownloadWorker.enqueueAssetDownloadWork(context, it.downloadId, it.animUrl)
+
+            emit(PreDownloadStarted(it))
+
+            downloadList.add(AnimDownloadWorker.TAG + it.downloadId)
+        }
+
+        WorkManager.getInstance(context).getWorkInfosLiveData(
+            WorkQuery.Builder.fromTags(downloadList)
+                .addStates(listOf(WorkInfo.State.SUCCEEDED)).build()
+        ).asFlow().filterNot { it.isEmpty() }.distinctUntilChanged().collect { workInfoList ->
+            workInfoList.map { workInfo ->
+                val giftId = workInfo.outputData.getString("giftId")
+                val giftUrl = workInfo.outputData.getString("giftUrl")
+                giftId?.let { id ->
+                    giftUrl?.let { url ->
+                        emit(PreDownloadSuccess(DownloadInfo(downloadId = id, animUrl = url)))
+                        val index = downloadList.indexOfFirst { it == AnimDownloadWorker.TAG + id }
+                        if (index >= 0) downloadList.removeAt(index)
+                        Log.d("Ruben", "success $id, $url")
+                    }
+                }
+            }
+        }
+
+    }
+
+    override suspend fun getDownloadStatus(): Flow<GiftAnimation> {
+        return dbHelper.getDownloadStatus()
+    }
+
+    private suspend fun updateDownloadStatus(downloadInfo: DownloadInfo, giftStatus: GiftStatus) {
+        dbHelper.insertGiftAnimation(
+            GiftAnimation(
+                id = downloadInfo.downloadId,
+                giftSource = downloadInfo.animUrl,
+                soundSource = downloadInfo.audioUrl,
+                createdTime = System.currentTimeMillis(),
+                giftStatus = giftStatus,
+                requestId = downloadInfo.requestId
+            )
+        )
     }
 }

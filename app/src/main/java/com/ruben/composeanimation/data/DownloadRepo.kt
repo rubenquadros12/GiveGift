@@ -38,7 +38,7 @@ class DownloadRepo @Inject constructor(
     }
 
     private suspend fun updateDB(giftId: String, giftStatus: GiftStatus, animLocation: String = "", audioLocation: String? = null) {
-        dbHelper.updateGiftDownloadStatus(giftId, giftStatus, animLocation, audioLocation)
+        dbHelper.updateGiftDownloadStatus(giftId, giftStatus, animLocation, audioLocation, System.currentTimeMillis())
     }
 
     private fun writeToDisk(body: ResponseBody, giftId: String): String? {
