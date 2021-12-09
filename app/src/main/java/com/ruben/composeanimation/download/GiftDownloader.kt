@@ -1,16 +1,20 @@
 package com.ruben.composeanimation.download
 
-import com.ruben.composeanimation.data.GiftMessage
+import com.ruben.composeanimation.domain.GiftMessageEntity
+import com.ruben.composeanimation.download.models.DownloadResult
+import com.ruben.composeanimation.download.models.GiftInfo
+import java.io.File
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.flow
-import javax.inject.Inject
 
 /**
- * Created by Ruben Quadros on 02/12/21
+ * Created by Ruben Quadros on 08/12/21
  **/
-class GiftDownloader @Inject constructor() {
+interface GiftDownloader {
+    fun initialize()
 
-    fun isDownloadRequired(giftMessage: GiftMessage): Boolean = false
+    fun shutdown()
 
-    fun downloadAsset(giftMessage: GiftMessage): Flow<Boolean> = flow { emit(true) }
+    suspend fun downloadGift(giftMessage: GiftMessageEntity): Flow<DownloadResult>
+
+    suspend fun preDownloadGift(giftInfo: GiftInfo, file: File): Flow<DownloadResult>
 }

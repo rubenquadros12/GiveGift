@@ -2,6 +2,7 @@ package com.ruben.composeanimation.queue
 
 import android.util.Log
 import com.ruben.composeanimation.data.GiftMessage
+import com.ruben.composeanimation.domain.GiftMessageEntity
 import com.ruben.composeanimation.utility.GiftConstants
 import com.ruben.composeanimation.utility.isHighTierSlab
 import kotlinx.coroutines.suspendCancellableCoroutine
@@ -13,11 +14,11 @@ import kotlin.coroutines.resume
  **/
 class GiftProcessorImpl @Inject constructor() : GiftProcessor {
 
-    private val _giftList: MutableList<GiftMessage> = mutableListOf()
+    private val _giftList: MutableList<GiftMessageEntity> = mutableListOf()
     private var _giftIndex = -1
     private var _callback: GiftListCallback? = null
 
-    override suspend fun processGift(giftMessage: GiftMessage): GiftMessage {
+    override suspend fun processGift(giftMessage: GiftMessageEntity): GiftMessageEntity {
         Log.d("Ruben", "incoming from queue ${giftMessage.slab}")
         return if (isProcessEmpty()) {
             //no gifts present you can add
@@ -29,8 +30,8 @@ class GiftProcessorImpl @Inject constructor() : GiftProcessor {
         }
     }
 
-    override fun removeProcessedGift(giftMessage: GiftMessage) {
-        _giftIndex = _giftList.indexOfFirst { it.id == giftMessage.id }
+    override fun removeProcessedGift(giftMessage: GiftMessageEntity) {
+        _giftIndex = _giftList.indexOfFirst { it.commentId == giftMessage.commentId }
         Log.d("Ruben", "remove index $_giftIndex")
         _giftList.removeAt(_giftIndex)
         Log.d("Ruben", "remove size ${_giftList.size}")
@@ -43,7 +44,7 @@ class GiftProcessorImpl @Inject constructor() : GiftProcessor {
 
     private fun isHighTierGiftDisplaying(): Boolean = _giftList[0].slab.isHighTierSlab()
 
-    private suspend fun processIncomingGiftInternal(giftMessage: GiftMessage): GiftMessage {
+    private suspend fun processIncomingGiftInternal(giftMessage: GiftMessageEntity): GiftMessageEntity {
         if (giftMessage.slab.isHighTierSlab()) {
             Log.d("Ruben", "incoming gift high tier ${giftMessage.slab}")
             //wait for all gifts to be shown
@@ -76,12 +77,12 @@ class GiftProcessorImpl @Inject constructor() : GiftProcessor {
         }
     }
 
-    private fun addGift(index: Int = 0, giftMessage: GiftMessage): GiftMessage {
+    private fun addGift(index: Int = 0, giftMessage: GiftMessageEntity): GiftMessageEntity {
         _giftList.add(index, giftMessage)
         return _giftList[index]
     }
 
-    private suspend fun addHighTierGift(giftMessage: GiftMessage): GiftMessage {
+    private suspend fun addHighTierGift(giftMessage: GiftMessageEntity): GiftMessageEntity {
         suspendCancellableCoroutine<Unit> { continuation ->
             Log.d("Ruben", "in suspendCancellableCoroutine")
             _callback = object : GiftListCallback {
@@ -98,7 +99,7 @@ class GiftProcessorImpl @Inject constructor() : GiftProcessor {
         return addGift(giftMessage = giftMessage)
     }
 
-    private suspend fun addLowTierGift(giftMessage: GiftMessage): GiftMessage {
+    private suspend fun addLowTierGift(giftMessage: GiftMessageEntity): GiftMessageEntity {
         suspendCancellableCoroutine<Unit> { continuation ->
             _callback = object : GiftListCallback {
                 override fun onGiftListChanged(size: Int) {

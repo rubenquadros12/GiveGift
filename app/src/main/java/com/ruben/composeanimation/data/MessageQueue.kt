@@ -34,7 +34,7 @@ class MessageQueue @Inject constructor() {
     }
 
     fun clearGift(giftMessage: GiftMessage) {
-        giftIndex = giftList.indexOfFirst { it.id == giftMessage.id }
+        giftIndex = giftList.indexOfFirst { it.commentId == giftMessage.commentId }
         if (interimQueue.isNotEmpty()) interimQueue.removeFirst()
         giftList.removeAt(giftIndex)
         callback?.onDataChange(giftList.size)

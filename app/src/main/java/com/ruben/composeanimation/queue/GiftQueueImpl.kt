@@ -1,8 +1,11 @@
 package com.ruben.composeanimation.queue
 
 import android.util.Log
-import com.ruben.composeanimation.data.GiftMessage
-import com.ruben.composeanimation.download.GiftDownloader
+import com.ruben.composeanimation.domain.GiftMessageEntity
+import com.ruben.composeanimation.download.GiftCache
+import com.ruben.composeanimation.download.models.CacheStarted
+import com.ruben.composeanimation.download.models.CacheSuccess
+import com.ruben.composeanimation.download.models.CachedResource
 import com.ruben.composeanimation.queue.models.DequeueResult
 import com.ruben.composeanimation.queue.models.EnqueueResult
 import com.ruben.composeanimation.queue.models.GiftDequeued
@@ -15,12 +18,12 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.selects.select
 import javax.inject.Inject
 import kotlin.coroutines.resume
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.suspendCancellableCoroutine
 
 /**
@@ -28,11 +31,11 @@ import kotlinx.coroutines.suspendCancellableCoroutine
  **/
 class GiftQueueImpl @Inject constructor(
     private val giftProcessor: GiftProcessor,
-    private val giftDownloader: GiftDownloader
+    private val giftCache: GiftCache
 ) : GiftQueue {
 
-    private val _priorityChannels: MutableMap<String, Channel<GiftMessage>> = mutableMapOf()
-    private val _giftChannel: Channel<GiftMessage> = Channel(capacity = Channel.UNLIMITED)
+    private val _priorityChannels: MutableMap<String, Channel<GiftMessageEntity>> = mutableMapOf()
+    private val _giftChannel: Channel<GiftMessageEntity> = Channel(capacity = Channel.UNLIMITED)
     private var _isActive = true
     private var _job: Job? = null
     private var _isPause = false
@@ -45,36 +48,53 @@ class GiftQueueImpl @Inject constructor(
         _job = CoroutineScope(Dispatchers.Default).launch { queueGiftsInternal() }
     }
 
-    override suspend fun enqueue(giftMessage: GiftMessage): Flow<EnqueueResult> = flow {
-        if (giftDownloader.isDownloadRequired(giftMessage)) {
-            if (giftMessage.userId == "123") {
-                giftDownloader.downloadAsset(giftMessage).collect {
-                    if (it) _priorityChannels["self"]?.send(giftMessage)
-                }
-            } else {
-                giftDownloader.downloadAsset(giftMessage).collect {
-                    if (it) _priorityChannels[giftMessage.slab]?.send(giftMessage)
-                }
-            }
-            emit(GiftNotDownloaded(giftMessage))
-        } else {
+    override suspend fun enqueue(giftMessage: GiftMessageEntity): Flow<EnqueueResult> = flow {
+        fun attachCachedResource(cachedResource: CachedResource) {
+            giftMessage.animSource = cachedResource.cachedAnimAsset
+            giftMessage.audioSource = cachedResource.cachedAudioAsset
+            Log.d("Ruben", "attaching cached values ${giftMessage.animSource}, ${giftMessage.audioSource}")
+        }
+
+        val result = giftCache.getCachedGift(giftMessage)
+        Log.d("Ruben", "cache result $result")
+        if (result != null) {
             if (giftMessage.userId == "123") {
                 Log.d("Ruben", "send self")
+                attachCachedResource(result)
                 _priorityChannels["self"]?.send(giftMessage)
             } else {
                 Log.d("Ruben", "send others")
+                attachCachedResource(result)
                 _priorityChannels[giftMessage.slab]?.send(giftMessage)
             }
             emit(GiftEnqueued(giftMessage))
+        } else {
+            emit(GiftNotDownloaded(giftMessage))
+            giftCache.cacheGift(giftMessage).collect { cacheResult ->
+                when (cacheResult) {
+                    is CacheStarted -> {
+                        //do nothing
+                        Log.d("Ruben", "just started cache")
+                    }
+                    is CacheSuccess -> {
+                        Log.d("Ruben", "cached values ${giftMessage.animSource}, ${giftMessage.audioSource}")
+                        if(giftMessage.userId == "123") {
+                            _priorityChannels["self"]?.send(giftMessage)
+                        } else {
+                            _priorityChannels[giftMessage.slab]?.send(giftMessage)
+                        }
+                    }
+                }
+            }
         }
     }
 
-    override suspend fun dequeue(giftMessage: GiftMessage): Flow<DequeueResult> = flow {
+    override suspend fun dequeue(giftMessage: GiftMessageEntity): Flow<DequeueResult> = flow {
         giftProcessor.removeProcessedGift(giftMessage)
         emit(GiftDequeued(giftMessage))
     }
 
-    override suspend fun getGifts(): Flow<GiftMessage> = flow {
+    override suspend fun getGifts(): Flow<GiftMessageEntity> = flow {
         _giftChannel.consumeEach {
             Log.d("Ruben", "emit")
             emit(it)

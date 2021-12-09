@@ -1,35 +1,43 @@
 package com.ruben.composeanimation.ui.component
 
 import android.util.Log
+import android.widget.ImageView
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.layoutId
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.flowWithLifecycle
-import com.ruben.composeanimation.data.GiftMessage
-import com.ruben.composeanimation.ui.Gift
-import com.ruben.composeanimation.ui.GiftMessageContent
+import com.github.penfeizhou.animation.apng.APNGDrawable
+import com.github.penfeizhou.animation.loader.AssetStreamLoader
+import com.github.penfeizhou.animation.loader.FileLoader
+import com.ruben.composeanimation.domain.GiftMessageEntity
 import com.ruben.composeanimation.ui.MainState
 import com.ruben.composeanimation.ui.MainViewModel2
-import com.ruben.composeanimation.ui.Slab
 import com.ruben.composeanimation.ui.Slot
 import kotlinx.coroutines.delay
 
@@ -39,7 +47,7 @@ import kotlinx.coroutines.delay
 @Composable
 fun StickyComments(mainViewModel2: MainViewModel2) {
 
-    fun onGiftClear(giftMessage: GiftMessage, slot: Slot) {
+    fun onGiftClear(giftMessage: GiftMessageEntity, slot: Slot) {
         mainViewModel2.clearGift(giftMessage, slot)
     }
 
@@ -75,20 +83,20 @@ fun StickyComments(mainViewModel2: MainViewModel2) {
 }
 
 @Composable
-fun StickyCommentsUI(modifier: Modifier = Modifier, uiState: MainState, onGiftClear: (GiftMessage, Slot) -> Unit) {
+fun StickyCommentsUI(modifier: Modifier = Modifier, uiState: MainState, onGiftClear: (GiftMessageEntity, Slot) -> Unit) {
     Column(modifier = modifier.padding(16.dp)) {
 
         Log.d("Ruben", "ui state $uiState")
 
         uiState.slot1?.let {
-            Log.d("Ruben", "show in slot1 ${it.id}")
+            Log.d("Ruben", "show in slot1 ${it.commentId}")
             Slot1(giftMessage = it, onGiftClear = onGiftClear)
         }
 
         Spacer(modifier = modifier.padding(vertical = 16.dp))
 
         uiState.slot2?.let {
-            Log.d("Ruben", "show in slot2 ${it.id}")
+            Log.d("Ruben", "show in slot2 ${it.commentId}")
             Slot2(giftMessage = it, onGiftClear = onGiftClear)
         }
     }
@@ -96,19 +104,19 @@ fun StickyCommentsUI(modifier: Modifier = Modifier, uiState: MainState, onGiftCl
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
-fun Slot1(giftMessage: GiftMessage, onGiftClear: (GiftMessage, Slot) -> Unit) {
+fun Slot1(giftMessage: GiftMessageEntity, onGiftClear: (GiftMessageEntity, Slot) -> Unit) {
     GiftItem(giftMessage = giftMessage, onGiftClear = { gift -> onGiftClear.invoke(gift, Slot.SLOT_1) })
 }
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
-fun Slot2(giftMessage: GiftMessage, onGiftClear: (GiftMessage, Slot) -> Unit) {
+fun Slot2(giftMessage: GiftMessageEntity, onGiftClear: (GiftMessageEntity, Slot) -> Unit) {
     GiftItem(giftMessage = giftMessage, onGiftClear = { gift -> onGiftClear.invoke(gift, Slot.SLOT_2) })
 }
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
-fun Slab5Gift(modifier: Modifier = Modifier, giftMessage: GiftMessage, onGiftClear: (GiftMessage) -> Unit, onSpecialSlotClear: () -> Unit) {
+fun Slab5Gift(modifier: Modifier = Modifier, giftMessage: GiftMessageEntity, onGiftClear: (GiftMessageEntity) -> Unit, onSpecialSlotClear: () -> Unit) {
     GiftItem5(
         modifier = modifier,
         giftMessage = giftMessage,
@@ -121,8 +129,8 @@ fun Slab5Gift(modifier: Modifier = Modifier, giftMessage: GiftMessage, onGiftCle
 @Composable
 fun PlaceableView(
     currentView: CurrentView,
-    giftMessage: GiftMessage,
-    onGiftClear: (GiftMessage) -> Unit,
+    giftMessage: GiftMessageEntity,
+    onGiftClear: (GiftMessageEntity) -> Unit,
     content: @Composable () -> Unit
 ) {
 
@@ -150,23 +158,37 @@ fun PlaceableView(
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
-fun GiftItem(modifier: Modifier = Modifier, giftMessage: GiftMessage, onGiftClear: (GiftMessage) -> Unit) {
+fun GiftItem(modifier: Modifier = Modifier, giftMessage: GiftMessageEntity, onGiftClear: (GiftMessageEntity) -> Unit) {
     //var isVisible by remember { mutableStateOf(true) }
 
     //Log.d("Ruben", "giftItem $isVisible")
+    var fileLoader: FileLoader? = null
+    val context = LocalContext.current
 
     LaunchedEffect(key1 = giftMessage) {
         Log.d("Ruben", "launched effect begin")
         delay(giftMessage.totalDuration)
         onGiftClear.invoke(giftMessage)
         Log.d("Ruben", "launched effect clear")
+        fileLoader = FileLoader(giftMessage.giftId)
         //isVisible = false
     }
 
     Box(modifier = modifier
         .layoutId("gift_content")
         .background(shape = RoundedCornerShape(10.dp), color = Color.Red)) {
-        Text(modifier = Modifier.padding(8.dp), text = giftMessage.message, fontWeight = FontWeight.W700, color = Color.White)
+        Row {
+            AndroidView(
+                modifier = Modifier.size(40.dp),
+                factory = {
+                    val imageView = ImageView(it)
+                    val apngDrawable = APNGDrawable(fileLoader)
+                    imageView.setImageDrawable(apngDrawable)
+                    imageView
+            })
+
+            Text(modifier = Modifier.align(Alignment.CenterVertically).padding(8.dp), text = giftMessage.message, fontWeight = FontWeight.W700, color = Color.White)
+        }
     }
 
 //    AnimatedVisibility(modifier = modifier, visible = isVisible) {
@@ -180,7 +202,7 @@ fun GiftItem(modifier: Modifier = Modifier, giftMessage: GiftMessage, onGiftClea
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
-fun GiftItem5(modifier: Modifier = Modifier, giftMessage: GiftMessage, onGiftClear: (GiftMessage) -> Unit, onSpecialSlotClear: () -> Unit) {
+fun GiftItem5(modifier: Modifier = Modifier, giftMessage: GiftMessageEntity, onGiftClear: (GiftMessageEntity) -> Unit, onSpecialSlotClear: () -> Unit) {
     LaunchedEffect(key1 = giftMessage) {
         Log.d("Ruben", "launched effect begin")
         delay(giftMessage.animDuration)

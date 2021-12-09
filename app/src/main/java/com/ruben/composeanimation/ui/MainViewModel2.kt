@@ -3,12 +3,16 @@ package com.ruben.composeanimation.ui
 import android.util.Log
 import androidx.lifecycle.ViewModel
 import com.ruben.composeanimation.data.GiftMessage
-import com.ruben.composeanimation.queue.GiftQueueImpl
 import com.ruben.composeanimation.data.MessageQueue
+import com.ruben.composeanimation.data.MockData
+import com.ruben.composeanimation.domain.GetGiftUseCase
+import com.ruben.composeanimation.domain.GiftMessageEntity
+import com.ruben.composeanimation.download.GiftCache
+import com.ruben.composeanimation.download.models.CacheDirectoryEmpty
+import com.ruben.composeanimation.download.models.CacheScanSuccess
+import com.ruben.composeanimation.download.models.NoCacheDirectory
 import com.ruben.composeanimation.queue.GiftQueue
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collect
 import org.orbitmvi.orbit.Container
 import org.orbitmvi.orbit.ContainerHost
@@ -25,10 +29,12 @@ class MainViewModel2 @Inject constructor(
     private val useCase: GetGiftUseCase,
     private val giftQueue: GiftQueue,
     private val messageQueue: MessageQueue,
+    private val giftCache: GiftCache
 ): ContainerHost<MainState, Nothing>, ViewModel() {
 
     override val container: Container<MainState, Nothing> by lazy {
         container(initialState = createInitialState()) {
+            scanCache()
             getNewGiftsInternal()
             getQueuedGifts()
             initializeQueue()
@@ -38,6 +44,21 @@ class MainViewModel2 @Inject constructor(
     val uiState = container.stateFlow
 
     fun createInitialState() = MainState()
+
+    private fun scanCache() = intent {
+        giftCache.performCacheScan().collect { cacheScanResult ->
+            Log.d("Ruben", "cache scan $cacheScanResult")
+            when (cacheScanResult) {
+                is NoCacheDirectory, CacheDirectoryEmpty -> {
+                    //download all files
+                    giftCache.preCacheGifts(MockData.getMockAnimAssets())
+                }
+                is CacheScanSuccess -> {
+                    //sync with db
+                }
+            }
+        }
+    }
 
     private fun initializeQueue() = intent {
         giftQueue.initialize()
@@ -55,15 +76,15 @@ class MainViewModel2 @Inject constructor(
                     reduce { state.copy(specialSlot = it) }
                 }
                 state.slot1 == null && state.slot2 == null -> {
-                    Log.d("Ruben", "select slot both null ${it.slab}, ${it.id}")
+                    Log.d("Ruben", "select slot both null ${it.slab}, ${it.commentId}")
                     reduce { state.copy(slot1 = it) }
                 }
                 state.slot1 == null -> {
-                    Log.d("Ruben", "select slot slot1 null ${it.slab}, ${it.id}")
+                    Log.d("Ruben", "select slot slot1 null ${it.slab}, ${it.commentId}")
                     reduce { state.copy(slot1 = it) }
                 }
                 state.slot2 == null -> {
-                    Log.d("Ruben", "select slot slot2    null ${it.slab}, ${it.id}")
+                    Log.d("Ruben", "select slot slot2    null ${it.slab}, ${it.commentId}")
                     reduce { state.copy(slot2 = it) }
                 }
             }
@@ -79,14 +100,15 @@ class MainViewModel2 @Inject constructor(
 
         useCase.getGifts().collect {
             Log.d("Ruben", "got from usecase ${it.slab}")
-            giftQueue.enqueue(it).collect {
+            giftQueue.enqueue(it).collect { enqueueResult ->
                 //check status
+                Log.d("Ruben", "enqueue result $enqueueResult")
             }
         }
     }
 
-    fun clearGift(giftMessage: GiftMessage, slot: Slot) = intent {
-        Log.d("Ruben", "clear gift ${giftMessage.slab}, ${giftMessage.id}, ${slot.name}")
+    fun clearGift(giftMessage: GiftMessageEntity, slot: Slot) = intent {
+        Log.d("Ruben", "clear gift ${giftMessage.slab}, ${giftMessage.commentId}, ${slot.name}")
         reduce { when (slot) {
             Slot.SLOT_1 -> state.copy(slot1 = null)
             Slot.SLOT_2 -> state.copy(slot2 = null)
@@ -119,8 +141,3 @@ class MainViewModel2 @Inject constructor(
         giftQueue.shutDown()
     }
 }
-
-data class GiftRequest(
-    val gift: GiftMessage,
-    val callback: CompletableDeferred<List<GiftMessage>>
-)

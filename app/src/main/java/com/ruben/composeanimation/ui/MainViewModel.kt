@@ -37,12 +37,15 @@ class MainViewModel @Inject constructor(private val repo: MainRepo): ContainerHo
         Log.d("Ruben", "userdId $count, ${count%5}")
         repo.insertNewGift(
             GiftMessage(
-                id = System.currentTimeMillis(),
+                commentId = System.currentTimeMillis(),
+                giftId = slab.giftId,
                 slab = slab.toString(),
                 message = message,
                 animDuration = slab.animDuration,
                 totalDuration = slab.duration,
-                userId = if (count%5 == 0) "123" else "456"
+                userId = if (count%5 == 0) "123" else "456",
+                audioUrl = slab.audioUrl,
+                animUrl = slab.animUrl
             )
         )
     }
@@ -52,7 +55,7 @@ class MainViewModel @Inject constructor(private val repo: MainRepo): ContainerHo
     }
 
     fun clearGift(giftMessage: GiftMessage) {
-        giftMap.remove(giftMessage.id)
+        giftMap.remove(giftMessage.commentId)
     }
 
     private fun getNewGiftsInternal() = intent {
@@ -61,7 +64,7 @@ class MainViewModel @Inject constructor(private val repo: MainRepo): ContainerHo
                 //wait
             } while (giftMap.size == 2)
         }.buffer().collect {
-           giftMap[it.id] = it
+           giftMap[it.commentId] = it
             reduce {
                 //state.copy(giftList = giftMap.values.toList())
                 state.copy()
@@ -70,33 +73,39 @@ class MainViewModel @Inject constructor(private val repo: MainRepo): ContainerHo
     }
 }
 
-enum class Slab(val duration: Long, val animDuration: Long) {
+enum class Slab(
+    val giftId: String,
+    val duration: Long,
+    val animDuration: Long,
+    val animUrl: String,
+    val audioUrl: String? = null
+) {
 
-    SLAB_1(1_500, 0) {
+    SLAB_1("1", 1_500, 0, "https://www.javatpoint.com/fullformpages/images/png.png") {
         override fun toString(): String {
             return "slab1"
         }
     },
 
-    SLAB_2(2_500, 1_500) {
+    SLAB_2("2", 2_500, 1_500, "https://www.javatpoint.com/fullformpages/images/png.png") {
         override fun toString(): String {
             return "slab2"
         }
     },
 
-    SLAB_3(4_500, 3_000) {
+    SLAB_3("3", 4_500, 3_000, "https://www.javatpoint.com/fullformpages/images/png.png") {
         override fun toString(): String {
             return "slab3"
         }
     },
 
-    SLAB_4(5_500, 4_000) {
+    SLAB_4("4", 5_500, 4_000, "https://www.javatpoint.com/fullformpages/images/png.png") {
         override fun toString(): String {
             return "slab4"
         }
     },
 
-    SLAB_5(9_500, 5_000) {
+    SLAB_5("5", 9_500, 5_000, "https://www.javatpoint.com/fullformpages/images/png.png") {
         override fun toString(): String {
             return "slab5"
         }
