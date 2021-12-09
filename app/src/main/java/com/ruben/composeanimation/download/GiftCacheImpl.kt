@@ -10,6 +10,7 @@ import com.ruben.composeanimation.download.models.CacheResult
 import com.ruben.composeanimation.download.models.CacheScanResult
 import com.ruben.composeanimation.download.models.CacheScanSuccess
 import com.ruben.composeanimation.download.models.CacheStarted
+import com.ruben.composeanimation.download.models.CacheStatus
 import com.ruben.composeanimation.download.models.CachedResource
 import com.ruben.composeanimation.download.models.CleanCacheResult
 import com.ruben.composeanimation.download.models.DirectoryNotPresent
@@ -119,7 +120,13 @@ class GiftCacheImpl @Inject constructor(
     }
 
     override fun getCacheResult(): Flow<CacheResult> = flow {
-        emit(CacheStarted(DownloadInfo(downloadId = "", animUrl = "")))
+        downloader.getDownloadStatus().collect {
+            emit(CacheStatus(
+                status = it.giftStatus,
+                cachedResource = CachedResource(cachedAnimAsset = it.giftLocation, cachedAudioAsset = it.soundLocation),
+                requestId = it.requestId
+            ))
+        }
     }
 
     private suspend fun cacheGiftInternal() {

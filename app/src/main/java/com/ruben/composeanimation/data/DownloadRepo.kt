@@ -20,7 +20,8 @@ class DownloadRepo @Inject constructor(
 ) {
     suspend fun downloadAsset(url: String, giftId: String): String? {
         return try {
-            //update enqueued
+            //downloading resource now
+            updateDB(giftId, GiftStatus.DOWNLOADING)
             val response = downloadService.downloadAsset(url).await()
             Log.d("Ruben", "Resposne success")
             val cacheResponse = writeToDisk(response, giftId)

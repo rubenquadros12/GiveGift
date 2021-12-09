@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNot
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flow
 
 /**
@@ -77,7 +78,7 @@ class GiftDownloaderImpl @Inject constructor(
     }
 
     override suspend fun getDownloadStatus(): Flow<GiftAnimation> {
-        return dbHelper.getDownloadStatus()
+        return dbHelper.getDownloadStatus().filterNotNull()
     }
 
     private suspend fun updateDownloadStatus(downloadInfo: DownloadInfo, giftStatus: GiftStatus) {
@@ -87,6 +88,7 @@ class GiftDownloaderImpl @Inject constructor(
                 giftSource = downloadInfo.animUrl,
                 soundSource = downloadInfo.audioUrl,
                 createdTime = System.currentTimeMillis(),
+                updatedTime = System.currentTimeMillis(),
                 giftStatus = giftStatus,
                 requestId = downloadInfo.requestId
             )

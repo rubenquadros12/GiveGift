@@ -85,7 +85,7 @@ interface AnimationDao {
     @Query("SELECT * FROM `gift_animation` WHERE `gift_id` =:giftId AND `status` = 'DOWNLOADED'")
     suspend fun getAnimation(giftId: String): GiftAnimation?
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertGiftAnimation(giftAnimation: GiftAnimation)
 
     @Query("UPDATE `gift_animation` SET `updated_at` =:timestamp WHERE (`animation_source` =:source OR `sound_source` =:source)")

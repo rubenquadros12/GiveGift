@@ -15,6 +15,7 @@ class QueueUtil @Inject constructor(
 ) {
 
     suspend fun getGiftMessage(commentId: Long): GiftMessageEntity? {
+        Log.d("Ruben", "queue util req id $commentId")
         return dbHelper.getGift(commentId)?.toUIEntity()
     }
 

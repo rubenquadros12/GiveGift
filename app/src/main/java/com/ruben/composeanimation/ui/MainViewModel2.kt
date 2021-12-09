@@ -55,7 +55,7 @@ class MainViewModel2 @Inject constructor(
             when (cacheScanResult) {
                 is NoCacheDirectory, CacheDirectoryEmpty -> {
                     //download all files
-                    giftCache.preCacheGifts(MockData.getMockAnimAssets())
+                    //giftCache.preCacheGifts(MockData.getMockAnimAssets())
                 }
                 is CacheScanSuccess -> {
                     //sync with db
