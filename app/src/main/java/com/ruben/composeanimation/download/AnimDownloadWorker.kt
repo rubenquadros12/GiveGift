@@ -15,6 +15,7 @@ import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.ruben.composeanimation.R
 import com.ruben.composeanimation.data.DownloadRepo
+import com.ruben.composeanimation.data.GiftStatus
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import javax.inject.Inject
@@ -34,10 +35,11 @@ class AnimDownloadWorker @AssistedInject constructor(
 
         const val TAG = "AnimDownloadWorker"
 
-        fun enqueueAssetDownloadWork(context: Context, giftId: String, url: String) {
+        fun enqueueAssetDownloadWork(context: Context, giftId: String, animUrl: String, audioUrl: String? = null) {
             val data = workDataOf(
                 "giftId" to giftId,
-                "giftUrl" to url
+                "giftUrl" to animUrl,
+                "audioUrl" to audioUrl
             )
 
             val workRequest = OneTimeWorkRequestBuilder<AnimDownloadWorker>()
@@ -56,6 +58,7 @@ class AnimDownloadWorker @AssistedInject constructor(
     override suspend fun doWork(): Result {
         val giftId = inputData.getString("giftId").orEmpty()
         val giftUrl = inputData.getString("giftUrl").orEmpty()
+        val audioUrl = inputData.getString("audioUrl")
 
         Log.d("Ruben", "Start work $giftId, $giftUrl")
 
@@ -66,43 +69,28 @@ class AnimDownloadWorker @AssistedInject constructor(
         }
 
         return withContext(Dispatchers.IO) {
-            val response = downloadRepo.downloadAsset(giftId = giftId, url = giftUrl)
-            if (response != null) {
-                val output = workDataOf(
-                    "giftId" to giftId,
-                    "giftUrl" to giftUrl,
-                    "localPath" to response
-                )
-                Log.d("Ruben", "Success work $giftId")
-                Result.success(output)
-            } else {
-                Log.d("Ruben", "Fail retry work $giftId")
-                Result.retry()
+            val animResponse = downloadRepo.downloadAsset(giftId = giftId, url = giftUrl)
+            val audioResponse = audioUrl?.let { downloadRepo.downloadAsset(giftId = giftId, url = it) }
+            when {
+                animResponse == null -> {
+                    //failed as anim asset not downloaded
+                    Result.retry()
+                }
+                audioUrl != null && audioResponse == null -> {
+                    //failed as audio asset not downloaded
+                    Result.retry()
+                }
+                else -> {
+                    val output = workDataOf(
+                        "giftId" to giftId,
+                        "giftUrl" to giftUrl,
+                        "localAnimPath" to animResponse,
+                    )
+                    Log.d("Ruben", "Success work $giftId")
+                    downloadRepo.updateDB(giftId = giftId, giftStatus = GiftStatus.DOWNLOADED, animLocation = animResponse, audioLocation = audioResponse)
+                    Result.success(output)
+                }
             }
-        }
-    }
-
-    override suspend fun getForegroundInfo(): ForegroundInfo {
-        val notification = NotificationCompat.Builder(
-            applicationContext,
-            "101"
-        )
-            .setContentTitle("OK")
-            .setSmallIcon(R.drawable.ic_android_black_24dp)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
-
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            ForegroundInfo(
-                101,
-                notification,
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
-            )
-        } else {
-            ForegroundInfo(
-                101,
-                notification
-            )
         }
     }
 }

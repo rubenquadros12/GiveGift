@@ -81,31 +81,31 @@ enum class Slab(
     val audioUrl: String? = null
 ) {
 
-    SLAB_1("1", 1_500, 0, "https://www.javatpoint.com/fullformpages/images/png.png") {
+    SLAB_1("1", 1_500, 0, "https://www.javatpoint.com/fullformpages/images/png.png",) {
         override fun toString(): String {
             return "slab1"
         }
     },
 
-    SLAB_2("2", 2_500, 1_500, "https://www.javatpoint.com/fullformpages/images/png.png") {
+    SLAB_2("2", 2_500, 1_500, "https://cdn-icons-png.flaticon.com/512/281/281786.png") {
         override fun toString(): String {
             return "slab2"
         }
     },
 
-    SLAB_3("3", 4_500, 3_000, "https://www.javatpoint.com/fullformpages/images/png.png") {
+    SLAB_3("3", 4_500, 3_000, "https://upload.wikimedia.org/wikipedia/commons/1/1f/Internet_Explorer_10%2B11_computer_icon.png", "https://static.wikia.nocookie.net/gensin-impact/images/d/d4/Item_Primogem.png") {
         override fun toString(): String {
             return "slab3"
         }
     },
 
-    SLAB_4("4", 5_500, 4_000, "https://www.javatpoint.com/fullformpages/images/png.png") {
+    SLAB_4("4", 5_500, 4_000, "https://www.freepnglogos.com/uploads/camera-logo-png/photo-camera-logo-clipart-2.png", "https://www.freepnglogos.com/uploads/camera-logo-png/photography-camera-logo-image-24.png") {
         override fun toString(): String {
             return "slab4"
         }
     },
 
-    SLAB_5("5", 9_500, 5_000, "https://www.javatpoint.com/fullformpages/images/png.png") {
+    SLAB_5("5", 9_500, 5_000, "https://cdn-icons-png.flaticon.com/512/281/281769.png", "https://cdn-icons-png.flaticon.com/512/281/281752.png") {
         override fun toString(): String {
             return "slab5"
         }

@@ -40,6 +40,7 @@ class GiftDownloaderImpl @Inject constructor(
             AnimDownloadWorker.enqueueAssetDownloadWork(context, downloadInfo.downloadId, downloadInfo.animUrl)
         } else {
             //download both audio and anim
+            AnimDownloadWorker.enqueueAssetDownloadWork(context, downloadInfo.downloadId, downloadInfo.animUrl, downloadInfo.audioUrl)
         }
     }
 

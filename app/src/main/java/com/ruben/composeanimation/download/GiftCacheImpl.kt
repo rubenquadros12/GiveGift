@@ -58,14 +58,14 @@ class GiftCacheImpl @Inject constructor(
         if (cacheDirectory.exists().not()) {
             //cache directory not present or deleted
             cacheDirectory.mkdirs()
-            _isSyncInProgress = true
+            _isSyncInProgress = false
             emit(NoCacheDirectory)
         } else {
             //check if files present in cache
             val files = cacheDirectory.listFiles()
             if (files.isNullOrEmpty()) {
                 //there are no files in directory
-                _isSyncInProgress = true
+                _isSyncInProgress = false
                 emit(CacheDirectoryEmpty)
             } else {
                 //files are present no need to fresh download

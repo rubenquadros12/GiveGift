@@ -25,20 +25,14 @@ class DownloadRepo @Inject constructor(
             val response = downloadService.downloadAsset(url).await()
             Log.d("Ruben", "Resposne success")
             val cacheResponse = writeToDisk(response, giftId)
-            if (cacheResponse != null) {
-                updateDB(giftId, GiftStatus.DOWNLOADED, cacheResponse)
-            } else {
-                updateDB(giftId, GiftStatus.NOT_PRESENT)
-            }
             cacheResponse
         } catch (e: Exception) {
             Log.d("Ruben", "Resposne fail $e")
-            updateDB(giftId, GiftStatus.NOT_PRESENT)
             null
         }
     }
 
-    private suspend fun updateDB(giftId: String, giftStatus: GiftStatus, animLocation: String = "", audioLocation: String? = null) {
+    suspend fun updateDB(giftId: String, giftStatus: GiftStatus, animLocation: String = "", audioLocation: String? = null) {
         dbHelper.updateGiftDownloadStatus(giftId, giftStatus, animLocation, audioLocation, System.currentTimeMillis())
     }
 
