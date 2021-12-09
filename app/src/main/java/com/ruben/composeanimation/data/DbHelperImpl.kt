@@ -58,4 +58,8 @@ class DbHelperImpl @Inject constructor(private val db: AppDatabase): DbHelper {
         db.animDao().deleteOutOfSyncFiles(ids)
     }
 
+    override suspend fun getQueuedDownload(id: String): GiftAnimation? {
+        return db.animDao().getQueuedDownload(id)
+    }
+
 }

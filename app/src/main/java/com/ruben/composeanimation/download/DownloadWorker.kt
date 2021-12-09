@@ -1,23 +1,21 @@
 package com.ruben.composeanimation.download
 
 import android.content.Context
-import android.content.pm.ServiceInfo
-import android.os.Build
 import android.util.Log
-import androidx.core.app.NotificationCompat
 import androidx.hilt.work.HiltWorker
+import androidx.work.BackoffPolicy
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingWorkPolicy
-import androidx.work.ForegroundInfo
+import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
-import com.ruben.composeanimation.R
 import com.ruben.composeanimation.data.DownloadRepo
 import com.ruben.composeanimation.data.GiftStatus
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -26,7 +24,7 @@ import kotlinx.coroutines.withContext
  * Created by Ruben Quadros on 08/12/21
  **/
 @HiltWorker
-class AnimDownloadWorker @AssistedInject constructor(
+class DownloadWorker @AssistedInject constructor(
     @Assisted context: Context,
     @Assisted params: WorkerParameters
 ): CoroutineWorker(context, params) {
@@ -42,9 +40,14 @@ class AnimDownloadWorker @AssistedInject constructor(
                 "audioUrl" to audioUrl
             )
 
-            val workRequest = OneTimeWorkRequestBuilder<AnimDownloadWorker>()
+            val workRequest = OneTimeWorkRequestBuilder<DownloadWorker>()
                 .setInputData(data)
                 .addTag(TAG + giftId)
+                .setBackoffCriteria(
+                    BackoffPolicy.LINEAR,
+                    OneTimeWorkRequest.MIN_BACKOFF_MILLIS,
+                    TimeUnit.MILLISECONDS
+                )
                 .build()
 
             WorkManager.getInstance(context)
@@ -66,6 +69,12 @@ class AnimDownloadWorker @AssistedInject constructor(
             //failed
             Log.d("Ruben", "fail work $giftId")
             return Result.failure()
+        }
+
+        if (runAttemptCount > MAX_RETRY) {
+            //update fail status
+            downloadRepo.updateDB(giftId = giftId, giftStatus = GiftStatus.FAILED)
+            Result.failure()
         }
 
         return withContext(Dispatchers.IO) {
@@ -94,3 +103,5 @@ class AnimDownloadWorker @AssistedInject constructor(
         }
     }
 }
+
+const val MAX_RETRY = 2

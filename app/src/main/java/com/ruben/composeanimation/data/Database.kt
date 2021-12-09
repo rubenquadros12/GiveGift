@@ -70,7 +70,7 @@ data class CachedSources(
 )
 
 enum class GiftStatus {
-    DOWNLOADED, DOWNLOADING, DOWNLOAD_QUEUED, NOT_PRESENT
+    DOWNLOADED, DOWNLOADING, DOWNLOAD_QUEUED, FAILED
 }
 
 @Dao
@@ -91,7 +91,7 @@ interface GiftDao {
 
 @Dao
 interface AnimationDao {
-    @Query("SELECT * FROM `gift_animation` WHERE `gift_id` =:giftId AND (`status` = 'DOWNLOADED' OR `status`  = 'DOWNLOADING' OR `status` = 'DOWNLOAD_QUEUED')")
+    @Query("SELECT * FROM `gift_animation` WHERE `gift_id` =:giftId AND `status` = 'DOWNLOADED'")
     suspend fun getAnimation(giftId: String): GiftAnimation?
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
@@ -117,6 +117,9 @@ interface AnimationDao {
 
     @Query("DELETE FROM `gift_animation` WHERE `gift_id` IN (:ids)")
     suspend fun deleteOutOfSyncFiles(ids: List<String>)
+
+    @Query("SELECT * FROM `gift_animation` WHERE `gift_id` =:id")
+    suspend fun getQueuedDownload(id: String): GiftAnimation?
 
 }
 

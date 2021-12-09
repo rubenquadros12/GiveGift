@@ -183,7 +183,12 @@ fun GiftItem(modifier: Modifier = Modifier, giftMessage: GiftMessageEntity, onGi
                     val apngDrawable = APNGDrawable(fileLoader)
                     imageView.setImageDrawable(apngDrawable)
                     imageView
-            })
+            }, update = {
+                    val fileLoader = FileLoader(giftMessage.animSource)
+                    val apngDrawable = APNGDrawable(fileLoader)
+                    it.setImageDrawable(apngDrawable)
+                }
+            )
 
             Text(modifier = Modifier.align(Alignment.CenterVertically).padding(8.dp), text = giftMessage.message, fontWeight = FontWeight.W700, color = Color.White)
         }
@@ -206,7 +211,24 @@ fun GiftItem5(modifier: Modifier = Modifier, giftMessage: GiftMessageEntity, onG
     Box(modifier = modifier
         .layoutId("gift_content")
         .background(shape = RoundedCornerShape(10.dp), color = Color.Red)) {
-        Text(modifier = Modifier.padding(8.dp), text = giftMessage.message, fontWeight = FontWeight.W700, color = Color.White)
+        Row {
+            AndroidView(
+                modifier = Modifier.size(40.dp),
+                factory = {
+                    val imageView = ImageView(it)
+                    val fileLoader = FileLoader(giftMessage.animSource)
+                    val apngDrawable = APNGDrawable(fileLoader)
+                    imageView.setImageDrawable(apngDrawable)
+                    imageView
+                }, update = {
+                    val fileLoader = FileLoader(giftMessage.animSource)
+                    val apngDrawable = APNGDrawable(fileLoader)
+                    it.setImageDrawable(apngDrawable)
+                }
+            )
+
+            Text(modifier = Modifier.align(Alignment.CenterVertically).padding(8.dp), text = giftMessage.message, fontWeight = FontWeight.W700, color = Color.White)
+        }
     }
 }
 

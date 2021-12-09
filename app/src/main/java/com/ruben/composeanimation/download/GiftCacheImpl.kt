@@ -5,6 +5,7 @@ import android.os.Environment
 import android.util.Log
 import com.ruben.composeanimation.data.DbHelper
 import com.ruben.composeanimation.data.GiftAnimation
+import com.ruben.composeanimation.data.GiftStatus
 import com.ruben.composeanimation.download.models.CacheDirectoryEmpty
 import com.ruben.composeanimation.download.models.CacheResult
 import com.ruben.composeanimation.download.models.CacheScanResult
@@ -44,6 +45,7 @@ class GiftCacheImpl @Inject constructor(
 
     private var _job: Job? = null
     private val _cacheChannel: Channel<DownloadInfo> = Channel(capacity = Channel.UNLIMITED)
+    private val _waitList: MutableList<DownloadInfo> = mutableListOf()
     private var _isSyncInProgress = false
     private var _syncCallback: SyncCallback? = null
 
@@ -58,14 +60,14 @@ class GiftCacheImpl @Inject constructor(
         if (cacheDirectory.exists().not()) {
             //cache directory not present or deleted
             cacheDirectory.mkdirs()
-            _isSyncInProgress = false
+            _isSyncInProgress = true
             emit(NoCacheDirectory)
         } else {
             //check if files present in cache
             val files = cacheDirectory.listFiles()
             if (files.isNullOrEmpty()) {
                 //there are no files in directory
-                _isSyncInProgress = false
+                _isSyncInProgress = true
                 emit(CacheDirectoryEmpty)
             } else {
                 //files are present no need to fresh download
@@ -136,8 +138,18 @@ class GiftCacheImpl @Inject constructor(
     }
 
     override suspend fun cacheGift(downloadInfo: DownloadInfo): Flow<CacheResult> = flow {
-        _cacheChannel.send(downloadInfo)
-        emit(CacheStarted(downloadInfo))
+        //check if gift already queued
+        val queuedDownload = dbHelper.getQueuedDownload(downloadInfo.downloadId)
+        Log.d("Ruben", "queued? $queuedDownload")
+        if (queuedDownload == null) {
+            //resource not queued for download
+            //request download
+            _cacheChannel.send(downloadInfo)
+            emit(CacheStarted(downloadInfo))
+        } else {
+            //resource already sent for downloading
+            _waitList.add(downloadInfo)
+        }
     }
 
     override fun shutdown() {
@@ -156,11 +168,33 @@ class GiftCacheImpl @Inject constructor(
                 cachedResource = CachedResource(cachedAnimAsset = it.giftLocation, cachedAudioAsset = it.soundLocation),
                 requestId = it.requestId
             ))
+
+            //free up waiting list
+            if (it.giftStatus == GiftStatus.DOWNLOADED) {
+                Log.d("Ruben", "downloaded ${it.id}")
+                val iterator = _waitList.iterator()
+                while (iterator.hasNext()) {
+                    val t = iterator.next()
+                    if (t.downloadId == it.id) {
+                        Log.d("Ruben", "free up waiting list ${it.id}, ${t.requestId}")
+                        emit(CacheStatus(
+                            status = it.giftStatus,
+                            cachedResource = CachedResource(cachedAnimAsset = it.giftLocation, cachedAudioAsset = it.soundLocation),
+                            requestId = t.requestId
+                        ))
+                        iterator.remove()
+                    }
+                }
+            }
+
+            //failed download remove from db
+            dbHelper.deleteOutOfSyncFiles(listOf(it.id))
         }
     }
 
     private suspend fun cacheGiftInternal() {
         _cacheChannel.consumeEach {
+            Log.d("Ruben", "send for download? $it")
             downloader.downloadGift(it)
         }
     }

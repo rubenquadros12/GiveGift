@@ -24,7 +24,7 @@ class DownloadRepo @Inject constructor(
             updateDB(giftId, GiftStatus.DOWNLOADING)
             val response = downloadService.downloadAsset(url).await()
             Log.d("Ruben", "Resposne success")
-            val cacheResponse = writeToDisk(response, giftId)
+            val cacheResponse = writeToDisk(response, giftId, url)
             cacheResponse
         } catch (e: Exception) {
             Log.d("Ruben", "Resposne fail $e")
@@ -36,13 +36,13 @@ class DownloadRepo @Inject constructor(
         dbHelper.updateGiftDownloadStatus(giftId, giftStatus, animLocation, audioLocation, System.currentTimeMillis())
     }
 
-    private fun writeToDisk(body: ResponseBody, giftId: String): String? {
+    private fun writeToDisk(body: ResponseBody, giftId: String, url: String): String? {
         var inputStream: InputStream? = null
         var outputStream: OutputStream? = null
 
         try {
-            //need to figure out extension from download url
-            val newFile = File(giftCache.getCacheDirectory(), "${giftId}.png")
+            val extension = url.substring(url.lastIndexOf("."))
+            val newFile = File(giftCache.getCacheDirectory(), "$giftId$extension")
             val fileReader = ByteArray(4096)
             val fileSize = body.contentLength()
 

@@ -22,6 +22,8 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filterNot
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.fold
+import kotlinx.coroutines.flow.reduce
 
 /**
  * Created by Ruben Quadros on 02/12/21
@@ -37,10 +39,11 @@ class GiftDownloaderImpl @Inject constructor(
         if (downloadInfo.audioUrl == null) {
             //download only anim
             Log.d("Ruben", "start download ${downloadInfo.downloadId}, ${downloadInfo.animUrl}")
-            AnimDownloadWorker.enqueueAssetDownloadWork(context, downloadInfo.downloadId, downloadInfo.animUrl)
+            DownloadWorker.enqueueAssetDownloadWork(context, downloadInfo.downloadId, downloadInfo.animUrl)
         } else {
             //download both audio and anim
-            AnimDownloadWorker.enqueueAssetDownloadWork(context, downloadInfo.downloadId, downloadInfo.animUrl, downloadInfo.audioUrl)
+            Log.d("Ruben", "start download for audio and anim ${downloadInfo.downloadId}, ${downloadInfo.audioUrl}, ${downloadInfo.animUrl}")
+            DownloadWorker.enqueueAssetDownloadWork(context, downloadInfo.downloadId, downloadInfo.animUrl, downloadInfo.audioUrl)
         }
     }
 
@@ -52,14 +55,15 @@ class GiftDownloaderImpl @Inject constructor(
             //update status in db
             updateDownloadStatus(downloadInfo = it, giftStatus = GiftStatus.DOWNLOAD_QUEUED)
 
-            AnimDownloadWorker.enqueueAssetDownloadWork(context, it.downloadId, it.animUrl)
+            DownloadWorker.enqueueAssetDownloadWork(context, it.downloadId, it.animUrl)
 
             emit(PreDownloadStarted(it))
 
-            downloadList.add(AnimDownloadWorker.TAG + it.downloadId)
+            downloadList.add(DownloadWorker.TAG + it.downloadId)
         }
 
         val totalDownloads = downloadList.size
+        val downloadIds: MutableSet<String> = mutableSetOf()
         var downloadUpdate = 0
 
         WorkManager.getInstance(context).getWorkInfosLiveData(
@@ -71,13 +75,15 @@ class GiftDownloaderImpl @Inject constructor(
                 val giftUrl = workInfo.outputData.getString("giftUrl")
                 giftId?.let { id ->
                     giftUrl?.let { url ->
-                        downloadUpdate = downloadUpdate.inc()
-                        emit(PreDownloadSuccess(DownloadInfo(downloadId = id, animUrl = url)))
-                        val index = downloadList.indexOfFirst { it == AnimDownloadWorker.TAG + id }
-                        if (index >= 0) downloadList.removeAt(index)
-                        Log.d("Ruben", "success $id, $url")
-                        if (downloadUpdate >= totalDownloads) {
-                            emit(PreDownloadComplete)
+                        val isNew = downloadIds.add(id)
+                        if (isNew) {
+                            downloadUpdate = downloadUpdate.inc()
+                            emit(PreDownloadSuccess(DownloadInfo(downloadId = id, animUrl = url)))
+                            Log.d("Ruben", "success download $id, $url")
+                            if (downloadUpdate >= totalDownloads) {
+                                downloadList.clear()
+                                emit(PreDownloadComplete)
+                            }
                         }
                     }
                 }
