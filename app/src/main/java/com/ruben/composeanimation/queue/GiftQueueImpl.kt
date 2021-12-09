@@ -178,7 +178,7 @@ class GiftQueueImpl @Inject constructor(
                     }
                     GiftStatus.FAILED -> {
                         //could not cache gift
-                        Log.d("Ruben", "download not present?????")
+                        Log.d("Ruben", "download failed what to do with gift??")
                     }
                     GiftStatus.DOWNLOADING -> {
                         //download on going

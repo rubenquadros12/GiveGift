@@ -60,14 +60,14 @@ class GiftCacheImpl @Inject constructor(
         if (cacheDirectory.exists().not()) {
             //cache directory not present or deleted
             cacheDirectory.mkdirs()
-            _isSyncInProgress = true
+            _isSyncInProgress = false
             emit(NoCacheDirectory)
         } else {
             //check if files present in cache
             val files = cacheDirectory.listFiles()
             if (files.isNullOrEmpty()) {
                 //there are no files in directory
-                _isSyncInProgress = true
+                _isSyncInProgress = false
                 emit(CacheDirectoryEmpty)
             } else {
                 //files are present no need to fresh download
@@ -98,6 +98,7 @@ class GiftCacheImpl @Inject constructor(
                 is PreDownloadComplete -> {
                     Log.d("Ruben", "sync complete, predownload")
                     _isSyncInProgress = false
+                    Log.d("Ruben", "sync callback $_syncCallback")
                     _syncCallback?.onSyncComplete()
                 }
             }
@@ -125,7 +126,7 @@ class GiftCacheImpl @Inject constructor(
                 _syncCallback = object : SyncCallback {
                     override fun onSyncComplete() {
                         if (continuation.isActive) {
-                            Log.d("Ruben", "sync complete")
+                            Log.d("Ruben", "sync complete resume now")
                             continuation.resume(Unit)
                         }
                     }
@@ -133,6 +134,7 @@ class GiftCacheImpl @Inject constructor(
             }
         }
         val cachedAnimation: GiftAnimation? = dbHelper.getGiftAnimation(id = id)
+        Log.d("Ruben", "cached anim? $cachedAnimation, $id")
         return if (cachedAnimation == null) null
         else CachedResource(cachedAnimAsset = cachedAnimation.giftLocation, cachedAudioAsset = cachedAnimation.soundLocation)
     }
@@ -188,7 +190,9 @@ class GiftCacheImpl @Inject constructor(
             }
 
             //failed download remove from db
-            dbHelper.deleteOutOfSyncFiles(listOf(it.id))
+            if (it.giftStatus == GiftStatus.FAILED) {
+                dbHelper.deleteOutOfSyncFiles(listOf(it.id))
+            }
         }
     }
 

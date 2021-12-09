@@ -105,13 +105,13 @@ fun StickyCommentsUI(modifier: Modifier = Modifier, uiState: MainState, onGiftCl
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun Slot1(giftMessage: GiftMessageEntity, onGiftClear: (GiftMessageEntity, Slot) -> Unit) {
-    GiftItem(giftMessage = giftMessage, onGiftClear = { gift -> onGiftClear.invoke(gift, Slot.SLOT_1) })
+    GiftItem1(giftMessage = giftMessage, onGiftClear = { gift -> onGiftClear.invoke(gift, Slot.SLOT_1) })
 }
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
 fun Slot2(giftMessage: GiftMessageEntity, onGiftClear: (GiftMessageEntity, Slot) -> Unit) {
-    GiftItem(giftMessage = giftMessage, onGiftClear = { gift -> onGiftClear.invoke(gift, Slot.SLOT_2) })
+    GiftItem2(giftMessage = giftMessage, onGiftClear = { gift -> onGiftClear.invoke(gift, Slot.SLOT_2) })
 }
 
 @OptIn(ExperimentalAnimationApi::class)
@@ -158,7 +158,7 @@ fun PlaceableView(
 
 @OptIn(ExperimentalAnimationApi::class)
 @Composable
-fun GiftItem(modifier: Modifier = Modifier, giftMessage: GiftMessageEntity, onGiftClear: (GiftMessageEntity) -> Unit) {
+fun GiftItem1(modifier: Modifier = Modifier, giftMessage: GiftMessageEntity, onGiftClear: (GiftMessageEntity) -> Unit) {
     //var isVisible by remember { mutableStateOf(true) }
 
     //Log.d("Ruben", "giftItem $isVisible")
@@ -184,6 +184,45 @@ fun GiftItem(modifier: Modifier = Modifier, giftMessage: GiftMessageEntity, onGi
                     imageView.setImageDrawable(apngDrawable)
                     imageView
             }, update = {
+                    val fileLoader = FileLoader(giftMessage.animSource)
+                    val apngDrawable = APNGDrawable(fileLoader)
+                    it.setImageDrawable(apngDrawable)
+                }
+            )
+
+            Text(modifier = Modifier.align(Alignment.CenterVertically).padding(8.dp), text = giftMessage.message, fontWeight = FontWeight.W700, color = Color.White)
+        }
+    }
+}
+
+@OptIn(ExperimentalAnimationApi::class)
+@Composable
+fun GiftItem2(modifier: Modifier = Modifier, giftMessage: GiftMessageEntity, onGiftClear: (GiftMessageEntity) -> Unit) {
+    //var isVisible by remember { mutableStateOf(true) }
+
+    //Log.d("Ruben", "giftItem $isVisible")
+
+    LaunchedEffect(key1 = giftMessage) {
+        Log.d("Ruben", "launched effect begin")
+        delay(giftMessage.totalDuration)
+        onGiftClear.invoke(giftMessage)
+        Log.d("Ruben", "launched effect clear")
+        //isVisible = false
+    }
+
+    Box(modifier = modifier
+        .layoutId("gift_content")
+        .background(shape = RoundedCornerShape(10.dp), color = Color.Red)) {
+        Row {
+            AndroidView(
+                modifier = Modifier.size(40.dp),
+                factory = {
+                    val imageView = ImageView(it)
+                    val fileLoader = FileLoader(giftMessage.animSource)
+                    val apngDrawable = APNGDrawable(fileLoader)
+                    imageView.setImageDrawable(apngDrawable)
+                    imageView
+                }, update = {
                     val fileLoader = FileLoader(giftMessage.animSource)
                     val apngDrawable = APNGDrawable(fileLoader)
                     it.setImageDrawable(apngDrawable)
