@@ -11,6 +11,7 @@ import com.ruben.composeanimation.data.GiftAnimation
 import com.ruben.composeanimation.data.GiftStatus
 import com.ruben.composeanimation.download.models.DownloadResult
 import com.ruben.composeanimation.download.models.DownloadInfo
+import com.ruben.composeanimation.download.models.PreDownloadComplete
 import com.ruben.composeanimation.download.models.PreDownloadStarted
 import com.ruben.composeanimation.download.models.PreDownloadSuccess
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -57,6 +58,9 @@ class GiftDownloaderImpl @Inject constructor(
             downloadList.add(AnimDownloadWorker.TAG + it.downloadId)
         }
 
+        val totalDownloads = downloadList.size
+        var downloadUpdate = 0
+
         WorkManager.getInstance(context).getWorkInfosLiveData(
             WorkQuery.Builder.fromTags(downloadList)
                 .addStates(listOf(WorkInfo.State.SUCCEEDED)).build()
@@ -66,10 +70,14 @@ class GiftDownloaderImpl @Inject constructor(
                 val giftUrl = workInfo.outputData.getString("giftUrl")
                 giftId?.let { id ->
                     giftUrl?.let { url ->
+                        downloadUpdate = downloadUpdate.inc()
                         emit(PreDownloadSuccess(DownloadInfo(downloadId = id, animUrl = url)))
                         val index = downloadList.indexOfFirst { it == AnimDownloadWorker.TAG + id }
                         if (index >= 0) downloadList.removeAt(index)
                         Log.d("Ruben", "success $id, $url")
+                        if (downloadUpdate >= totalDownloads) {
+                            emit(PreDownloadComplete)
+                        }
                     }
                 }
             }

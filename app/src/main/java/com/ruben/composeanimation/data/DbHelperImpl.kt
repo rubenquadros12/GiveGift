@@ -46,12 +46,16 @@ class DbHelperImpl @Inject constructor(private val db: AppDatabase): DbHelper {
         return db.animDao().getDownloadStatus()
     }
 
-    override suspend fun syncGiftAnimations() {
-
+    override suspend fun syncGiftAnimations(): List<GiftAnimation> {
+        return db.animDao().getFilePaths()
     }
 
     override suspend fun getGift(commentId: Long): GiftMessage? {
         return db.giftDao().getGift(commentId)
+    }
+
+    override suspend fun deleteOutOfSyncFiles(ids: List<String>) {
+        db.animDao().deleteOutOfSyncFiles(ids)
     }
 
 }

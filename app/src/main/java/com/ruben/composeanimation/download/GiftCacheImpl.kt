@@ -17,17 +17,21 @@ import com.ruben.composeanimation.download.models.DirectoryNotPresent
 import com.ruben.composeanimation.download.models.DownloadInfo
 import com.ruben.composeanimation.download.models.FileCleanUpResult
 import com.ruben.composeanimation.download.models.NoCacheDirectory
+import com.ruben.composeanimation.download.models.PreDownloadComplete
 import com.ruben.composeanimation.download.models.PreDownloadStarted
 import com.ruben.composeanimation.download.models.PreDownloadSuccess
+import com.ruben.composeanimation.utility.isHighTierSlab
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
+import kotlin.coroutines.resume
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.channels.consumeEach
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.suspendCancellableCoroutine
 
 /**
  * Created by Ruben Quadros on 08/12/21
@@ -40,6 +44,8 @@ class GiftCacheImpl @Inject constructor(
 
     private var _job: Job? = null
     private val _cacheChannel: Channel<DownloadInfo> = Channel(capacity = Channel.UNLIMITED)
+    private var _isSyncInProgress = false
+    private var _syncCallback: SyncCallback? = null
 
     override suspend fun initialize() {
         observeCacheInternal()
@@ -52,20 +58,25 @@ class GiftCacheImpl @Inject constructor(
         if (cacheDirectory.exists().not()) {
             //cache directory not present or deleted
             cacheDirectory.mkdirs()
+            _isSyncInProgress = true
             emit(NoCacheDirectory)
         } else {
             //check if files present in cache
             val files = cacheDirectory.listFiles()
             if (files.isNullOrEmpty()) {
                 //there are no files in directory
+                _isSyncInProgress = true
                 emit(CacheDirectoryEmpty)
             } else {
                 //files are present no need to fresh download
                 //get size and sync with db
                 val info = getCacheInfo(cacheDirectory)
-                emit(CacheScanSuccess(info.first, info.second))
                 //sync with db
-                syncWithDb()
+                syncWithDb(info.first)
+                Log.d("Ruben", "sync complete, db")
+                _isSyncInProgress = false
+                _syncCallback?.onSyncComplete()
+                emit(CacheScanSuccess(info.first, info.second))
             }
         }
 
@@ -81,6 +92,11 @@ class GiftCacheImpl @Inject constructor(
 
                 is PreDownloadSuccess -> {
                     Log.d("Ruben", "pre Success ${preDownloadResult.downloadInfo}")
+                }
+                is PreDownloadComplete -> {
+                    Log.d("Ruben", "sync complete, predownload")
+                    _isSyncInProgress = false
+                    _syncCallback?.onSyncComplete()
                 }
             }
         }
@@ -100,6 +116,20 @@ class GiftCacheImpl @Inject constructor(
     }
 
     override suspend fun getCachedGift(id: String): CachedResource? {
+        //if sync in progress wait to respond
+        Log.d("Ruben", "sync status $_isSyncInProgress")
+        if (_isSyncInProgress) {
+            suspendCancellableCoroutine<Unit> { continuation ->
+                _syncCallback = object : SyncCallback {
+                    override fun onSyncComplete() {
+                        if (continuation.isActive) {
+                            Log.d("Ruben", "sync complete")
+                            continuation.resume(Unit)
+                        }
+                    }
+                }
+            }
+        }
         val cachedAnimation: GiftAnimation? = dbHelper.getGiftAnimation(id = id)
         return if (cachedAnimation == null) null
         else CachedResource(cachedAnimAsset = cachedAnimation.giftLocation, cachedAudioAsset = cachedAnimation.soundLocation)
@@ -141,19 +171,41 @@ class GiftCacheImpl @Inject constructor(
 
     private fun getCacheInfo(cacheDirectory: File): Pair<List<String>, Long> {
         var size: Long = 0
-        val fileNames: MutableList<String> = mutableListOf()
+        val filePaths: MutableList<String> = mutableListOf()
         val files: Array<File>? = cacheDirectory.listFiles()
         if (files != null && files.isNotEmpty()) {
             files.forEach {
-                fileNames.add(it.name)
+                filePaths.add(it.absolutePath)
                 size += it.length()
             }
         }
-        return Pair(fileNames, size)
+        return Pair(filePaths, size)
     }
 
-    private fun syncWithDb() {
+    private suspend fun syncWithDb(filePaths: List<String>) {
+        //sync db and files
+        val outOfSyncFiles: MutableList<String> = mutableListOf()
+        val dbFilePaths = dbHelper.syncGiftAnimations()
+        dbFilePaths.forEach { dbGift ->
+            if (dbGift.slab.isHighTierSlab()) {
+                //for higher tabs
+                //check both anim and sound path
+                if (filePaths.contains(dbGift.giftLocation).not() || filePaths.contains(dbGift.soundLocation).not()) {
+                    outOfSyncFiles.add(dbGift.id)
+                }
+            } else {
+                //if slab 1 or slab 2
+                //only check for anim path
+                if (filePaths.contains(dbGift.giftLocation).not()) {
+                    outOfSyncFiles.add(dbGift.id)
+                }
+            }
+        }
 
+        if (outOfSyncFiles.isNotEmpty()) {
+            //delete items from db as they are not preset in files
+            dbHelper.deleteOutOfSyncFiles(outOfSyncFiles)
+        }
     }
 
     private fun observeCacheInternal() {
@@ -167,4 +219,8 @@ class GiftCacheImpl @Inject constructor(
 //            }
 //        }.startWatching()
     }
+}
+
+interface SyncCallback {
+    fun onSyncComplete()
 }

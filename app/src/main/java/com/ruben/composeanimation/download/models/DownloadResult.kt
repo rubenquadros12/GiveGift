@@ -14,3 +14,5 @@ data class DownloadSuccess(val giftMessage: GiftMessageEntity): DownloadResult()
 data class PreDownloadStarted(val downloadInfo: DownloadInfo): DownloadResult()
 
 data class PreDownloadSuccess(val downloadInfo: DownloadInfo): DownloadResult()
+
+object PreDownloadComplete: DownloadResult()

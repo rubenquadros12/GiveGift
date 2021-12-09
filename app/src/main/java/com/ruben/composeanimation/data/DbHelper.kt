@@ -20,6 +20,7 @@ interface DbHelper {
         updatedTime: Long
     )
     suspend fun getDownloadStatus(): Flow<GiftAnimation>
-    suspend fun syncGiftAnimations()
+    suspend fun syncGiftAnimations(): List<GiftAnimation>
     suspend fun getGift(commentId: Long): GiftMessage?
+    suspend fun deleteOutOfSyncFiles(ids: List<String>)
 }

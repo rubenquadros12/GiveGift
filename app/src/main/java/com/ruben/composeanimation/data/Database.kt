@@ -57,7 +57,16 @@ data class GiftAnimation(
     @ColumnInfo(name = "status")
     val giftStatus: GiftStatus,
     @ColumnInfo(name = "request_id")
-    val requestId: Long
+    val requestId: Long,
+    @ColumnInfo(name = "gift_slab")
+    val slab: String = ""
+)
+
+data class CachedSources(
+    @ColumnInfo(name = "animation_location")
+    val animationSource: String,
+    @ColumnInfo(name = "sound_location")
+    val audioSource: String?
 )
 
 enum class GiftStatus {
@@ -82,7 +91,7 @@ interface GiftDao {
 
 @Dao
 interface AnimationDao {
-    @Query("SELECT * FROM `gift_animation` WHERE `gift_id` =:giftId AND `status` = 'DOWNLOADED'")
+    @Query("SELECT * FROM `gift_animation` WHERE `gift_id` =:giftId AND (`status` = 'DOWNLOADED' OR `status`  = 'DOWNLOADING' OR `status` = 'DOWNLOAD_QUEUED')")
     suspend fun getAnimation(giftId: String): GiftAnimation?
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
@@ -102,6 +111,12 @@ interface AnimationDao {
 
     @Query("SELECT * FROM `gift_animation` ORDER BY `updated_at` DESC LIMIT 1")
     fun getDownloadStatus(): Flow<GiftAnimation>
+
+    @Query("SELECT * FROM `gift_animation`")
+    suspend fun getFilePaths(): List<GiftAnimation>
+
+    @Query("DELETE FROM `gift_animation` WHERE `gift_id` IN (:ids)")
+    suspend fun deleteOutOfSyncFiles(ids: List<String>)
 
 }
 

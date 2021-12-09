@@ -2,7 +2,6 @@ package com.ruben.composeanimation.ui
 
 import android.util.Log
 import androidx.lifecycle.ViewModel
-import com.ruben.composeanimation.data.MessageQueue
 import com.ruben.composeanimation.data.MockData
 import com.ruben.composeanimation.domain.GetGiftUseCase
 import com.ruben.composeanimation.domain.GiftMessageEntity
@@ -27,7 +26,6 @@ import org.orbitmvi.orbit.viewmodel.container
 class MainViewModel2 @Inject constructor(
     private val useCase: GetGiftUseCase,
     private val giftQueue: GiftQueue,
-    private val messageQueue: MessageQueue,
     private val giftCache: GiftCache
 ): ContainerHost<MainState, Nothing>, ViewModel() {
 
@@ -55,10 +53,10 @@ class MainViewModel2 @Inject constructor(
             when (cacheScanResult) {
                 is NoCacheDirectory, CacheDirectoryEmpty -> {
                     //download all files
-                    //giftCache.preCacheGifts(MockData.getMockAnimAssets())
+                    giftCache.preCacheGifts(MockData.getMockAnimAssets())
                 }
                 is CacheScanSuccess -> {
-                    //sync with db
+                    //sync with db done
                 }
             }
         }

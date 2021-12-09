@@ -162,15 +162,12 @@ fun GiftItem(modifier: Modifier = Modifier, giftMessage: GiftMessageEntity, onGi
     //var isVisible by remember { mutableStateOf(true) }
 
     //Log.d("Ruben", "giftItem $isVisible")
-    var fileLoader: FileLoader? = null
-    val context = LocalContext.current
 
     LaunchedEffect(key1 = giftMessage) {
         Log.d("Ruben", "launched effect begin")
         delay(giftMessage.totalDuration)
         onGiftClear.invoke(giftMessage)
         Log.d("Ruben", "launched effect clear")
-        fileLoader = FileLoader(giftMessage.giftId)
         //isVisible = false
     }
 
@@ -182,6 +179,7 @@ fun GiftItem(modifier: Modifier = Modifier, giftMessage: GiftMessageEntity, onGi
                 modifier = Modifier.size(40.dp),
                 factory = {
                     val imageView = ImageView(it)
+                    val fileLoader = FileLoader(giftMessage.animSource)
                     val apngDrawable = APNGDrawable(fileLoader)
                     imageView.setImageDrawable(apngDrawable)
                     imageView
@@ -190,14 +188,6 @@ fun GiftItem(modifier: Modifier = Modifier, giftMessage: GiftMessageEntity, onGi
             Text(modifier = Modifier.align(Alignment.CenterVertically).padding(8.dp), text = giftMessage.message, fontWeight = FontWeight.W700, color = Color.White)
         }
     }
-
-//    AnimatedVisibility(modifier = modifier, visible = isVisible) {
-//        Box(modifier = modifier
-//            .layoutId("gift_content")
-//            .background(shape = RoundedCornerShape(10.dp), color = Color.Red)) {
-//            Text(modifier = Modifier.padding(8.dp), text = giftMessage.message, fontWeight = FontWeight.W700, color = Color.White)
-//        }
-//    }
 }
 
 @OptIn(ExperimentalAnimationApi::class)
